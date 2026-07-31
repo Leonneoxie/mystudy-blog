@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。">
+  <title>第一个自定义 CUDA 算子应该验证什么 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="第一个自定义 CUDA 算子应该验证什么">
+  <meta property="og:description" content="以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第一个自定义 CUDA 算子应该验证什么">
+  <meta name="twitter:description" content="以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="CUDA">
+  <meta property="article:tag" content="PyTorch Extension">
+  <meta property="article:tag" content="Kernel Validation">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "第一个自定义 CUDA 算子应该验证什么", "description": "以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["CUDA", "PyTorch Extension", "Kernel Validation"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=20260731013651">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>第一个自定义 CUDA 算子应该验证什么</h1><p class="blog-summary">以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>入门到进阶</span></div><div class="blog-tags"><span>CUDA</span><span>PyTorch Extension</span><span>Kernel Validation</span></div></header>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">问题背景</h2>
+<p>第一个 CUDA kernel 很容易停在“能编译、能输出”。但自定义算子的目标不是换一种语法实现加法，而是建立接口、并行映射、正确性和性能证据的完整链路。</p>
+<h2 id="section-2">一句话结论</h2>
+<p>一个合格的最小算子至少要回答：线程负责哪些元素、任意 shape 是否正确、dtype/device/contiguous 如何约束、错误如何暴露，以及它在什么规模下比框架基线有意义。</p>
+<h2 id="section-3-kernel">最小 kernel</h2>
+<pre><code class="language-cpp">__global__ void add_kernel(
+    const float* x, const float* y, float* out, int64_t n) {
+  for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+       i &lt; n;
+       i += blockDim.x * gridDim.x) {
+    out[i] = x[i] + y[i];
+  }
+}</code></pre>
+<p>Grid-stride loop 让同一个 kernel 覆盖任意长度，并允许网格大小与数据长度解耦。包装层还需检查张量位于 CUDA、dtype 一致、元素数量一致，并使用当前 CUDA stream，而不是偷偷同步默认流。</p>
+<h2 id="section-4-shape">正确性不是只测一个 shape</h2>
+<p>推荐测试集合：</p>
+<ul><li><code>n=0、1、31、32、33</code> 等边界；</li><li>非 block size 整数倍；</li><li>大张量；</li><li>不同 dtype（如果声明支持）；</li><li>非连续张量：明确拒绝或正确处理；</li><li>多 stream 场景；</li><li>与 <code>torch.add</code> 的容差对拍。</li></ul>
+<h2 id="section-5">性能验证</h2>
+<p>向量加法通常受显存带宽限制。计时必须预热、使用 CUDA event、同步正确边界，并报告数据规模。小张量可能被 Python 和 launch overhead 主导，自定义 kernel 比 PyTorch 慢并不意外。</p>
+<pre><code class="language-python">start.record()
+for _ in range(iters):
+    out = custom_add(x, y)
+end.record()
+torch.cuda.synchronize()
+ms = start.elapsed_time(end) / iters</code></pre>
+<p>还应对比有效带宽，而不只是毫秒：每个元素读取 <code>x/y</code> 并写出 <code>out</code>，FP32 理论数据量约为 <code>12 * n</code> 字节。该估算忽略缓存和其他开销，但能帮助识别数量级错误。</p>
+<h2 id="section-6">本机环境边界</h2>
+<p>MyStudy 当前 PyTorch CUDA runtime 能运行 GPU 张量和 FlashInfer，但自定义 CUDA 扩展还依赖本机 CUDA Toolkit、编译器与 PyTorch ABI 匹配。缺少 <code>nvcc</code> 时可以学习源码、接口和模拟验证，不能把它描述为本机 kernel 实测。</p>
+<h2 id="section-7">参考资料</h2>
+<ul><li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/">CUDA C++ Programming Guide</a></li><li><a href="https://pytorch.org/tutorials/advanced/cpp_extension.html">PyTorch C++/CUDA Extensions</a></li></ul>
+<p>资料核验日期：2026-08-03。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3-kernel">最小 kernel</a><a class="toc-level-2" href="#section-4-shape">正确性不是只测一个 shape</a><a class="toc-level-2" href="#section-5">性能验证</a><a class="toc-level-2" href="#section-6">本机环境边界</a><a class="toc-level-2" href="#section-7">参考资料</a></div></aside></div>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="prefill-decode-scheduling.html"><span>上一篇</span><strong>Prefill 与 Decode 为什么会争抢同一块 GPU</strong></a><a href="inference-framework-comparison.html"><span>下一篇</span><strong>vLLM、SGLang 与 vLLM-Omni 应该如何比较</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><span>MyStudy 技术博客</span></footer>
+</body>
+</html>

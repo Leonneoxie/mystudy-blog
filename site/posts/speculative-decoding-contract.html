@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。">
+  <title>投机解码真正难在接受规则与状态回滚 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/speculative-decoding-contract.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="投机解码真正难在接受规则与状态回滚">
+  <meta property="og:description" content="从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/speculative-decoding-contract.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="投机解码真正难在接受规则与状态回滚">
+  <meta name="twitter:description" content="从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="Speculative Decoding">
+  <meta property="article:tag" content="Sampling">
+  <meta property="article:tag" content="KV Rollback">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "投机解码真正难在接受规则与状态回滚", "description": "从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/speculative-decoding-contract.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["Speculative Decoding", "Sampling", "KV Rollback"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=20260731013651">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>投机解码真正难在接受规则与状态回滚</h1><p class="blog-summary">从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>高级</span></div><div class="blog-tags"><span>Speculative Decoding</span><span>Sampling</span><span>KV Rollback</span></div></header>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">一句话结论</h2>
+<p>投机解码通过便宜 proposer 一次提出多个 token，再由目标模型并行验证；是否加速取决于接受率和验证成本，而正确性取决于接受规则及所有请求状态能否一致回滚。</p>
+<h2 id="section-2">三步执行</h2>
+<pre><code class="language-text">draft:  提议 d1 d2 d3 d4
+verify: 目标模型一次计算这些位置的分布
+accept: 接受前缀，遇到拒绝点改由目标分布采样</code></pre>
+<p>如果平均每次验证能接受多个 token，目标模型 forward 次数可能减少。但 proposer 太重、接受率太低或 batch 调度不匹配时，投机路径反而更慢。</p>
+<h2 id="section-3-greedy">为什么不能只比较 greedy 输出</h2>
+<p>Greedy 模式下可直接检查 draft token 是否等于目标模型 argmax；随机采样需要遵循修正后的分布，才能保持与目标分布一致。错误的“匹配就收、不匹配就重采”可能改变总体采样分布。</p>
+<h2 id="section-4">回滚对象</h2>
+<p>拒绝发生后，需要一致处理：</p>
+<ul><li>已预留但未接受的 KV token；</li><li>序列长度和 block table；</li><li>RNG/采样状态；</li><li>repetition/frequency penalty 历史；</li><li>stop string 与结构化解码状态；</li><li>流式输出缓冲区。</li></ul>
+<p>如果 token 已经发送给客户端，就不能再静默撤回。因此验证应先于外部可见提交。</p>
+<h2 id="section-5">最小实验设计</h2>
+<p>使用 n-gram proposer 可以在不加载第二个模型的情况下验证控制流：从请求已有 token 中查找相同后缀并提出后续 token。分别构造高重复文本和随机文本，预期前者接受率更高。这个实验验证机制和退化条件，不代表 draft model 或 EAGLE 的真实收益。</p>
+<h2 id="section-6">必须报告的指标</h2>
+<ul><li>平均接受 token 数；</li><li>接受率分布，而不只是均值；</li><li>proposer、verify 和 rollback 时间；</li><li>端到端 TPOT 与吞吐；</li><li>低接受率 workload 的反例；</li><li>开启前后输出分布或确定性对拍。</li></ul>
+<h2 id="section-7">参考资料</h2>
+<ul><li><a href="https://arxiv.org/abs/2211.17192">Fast Inference from Transformers via Speculative Decoding</a></li><li><a href="https://docs.vllm.ai/">vLLM Speculative Decoding</a></li></ul>
+<p>资料核验日期：2026-08-01。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">一句话结论</a><a class="toc-level-2" href="#section-2">三步执行</a><a class="toc-level-2" href="#section-3-greedy">为什么不能只比较 greedy 输出</a><a class="toc-level-2" href="#section-4">回滚对象</a><a class="toc-level-2" href="#section-5">最小实验设计</a><a class="toc-level-2" href="#section-6">必须报告的指标</a><a class="toc-level-2" href="#section-7">参考资料</a></div></aside></div>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="prefix-cache-radix-attention.html"><span>上一篇</span><strong>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</strong></a><span></span></nav>
+</article></main>
+  <footer class="blog-footer"><span>MyStudy 技术博客</span></footer>
+</body>
+</html>

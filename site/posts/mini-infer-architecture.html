@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。">
+  <title>mini-infer 为什么把推理引擎拆成四个边界 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/mini-infer-architecture.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="mini-infer 为什么把推理引擎拆成四个边界">
+  <meta property="og:description" content="复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/mini-infer-architecture.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="mini-infer 为什么把推理引擎拆成四个边界">
+  <meta name="twitter:description" content="复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="mini-infer">
+  <meta property="article:tag" content="Architecture">
+  <meta property="article:tag" content="Inference Engine">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "mini-infer 为什么把推理引擎拆成四个边界", "description": "复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/mini-infer-architecture.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["mini-infer", "Architecture", "Inference Engine"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=20260731013651">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">项目复盘</p><h1>mini-infer 为什么把推理引擎拆成四个边界</h1><p class="blog-summary">复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。</p><div class="blog-byline"><time>2026-07-31</time><span>约 3 分钟</span><span>进阶</span></div><div class="blog-tags"><span>mini-infer</span><span>Architecture</span><span>Inference Engine</span></div></header>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">项目目标</h2>
+<p>mini-infer 的目标不是成为 vLLM 或 SGLang 的轻量替代品，而是让学习者能沿着一条清晰路径理解现代推理引擎：先跑通自回归循环，再加入分页 KV、连续批处理、缓存、投机解码、量化、分布式和多模态边界。</p>
+<h2 id="section-2">一句话结论</h2>
+<p>教学框架最重要的设计不是 feature 数量，而是让请求状态、调度决策、缓存生命周期和模型执行保持可观察、可替换、可单独验证。</p>
+<h2 id="section-3">四个核心边界</h2>
+<pre><code class="language-text">Request / Sequence State
+          ↓
+      Scheduler  ←→  KV Cache Manager
+          ↓                ↓
+       Model Runner / Attention Backend</code></pre>
+<h3 id="section-4">请求状态</h3>
+<p>请求对象保存 token、生成限制、采样配置、完成原因和每请求随机状态。它不能依赖当前 batch index，否则连续批处理重排后，同一请求的行为会漂移。</p>
+<h3 id="section-5">调度器</h3>
+<p>调度器只决定本轮谁运行、处理多少 token，以及资源不足时等待、抢占还是重算。它不应直接实现注意力计算，也不应绕过缓存管理器修改物理块。</p>
+<h3 id="section-6-kv-cache">KV Cache 管理器</h3>
+<p>缓存管理器负责 block 分配、引用、共享、回收和回滚。调度器可以询问预算，但物理生命周期必须有唯一真相源，否则取消、投机拒绝和前缀共享很容易产生泄漏。</p>
+<h3 id="section-7">模型执行器</h3>
+<p>Model runner 把调度结果整理成张量和 attention metadata，调用 PyTorch、FlashInfer 或其他 backend。Kernel 选择属于执行层；它不能反向决定业务请求是否完成。</p>
+<h2 id="section-8-engine-step">为什么不能把所有前沿能力塞进一个 Engine.step</h2>
+<p>结构化输出可以约束采样状态，LoRA 会影响权重和缓存键，P/D 分离需要跨 worker 传递 KV，全模态生成甚至包含 diffusion 和 codec。若这些能力都通过条件分支堆进主循环，教学主线会迅速失去边界。</p>
+<p>mini-infer 的取舍是：文本推理通用机制进入主线；VLM encoder/projector 作为边界扩展；完整图像、音频和视频生成保留为独立 omni pipeline 课程。未覆盖不等于缺陷，而是明确产品范围。</p>
+<h2 id="section-9">如何验收架构而不只是输出</h2>
+<ol><li>调度器测试不加载真实模型，也能复现请求状态转换。</li><li>KV 管理测试能在完成、取消和回滚后恢复全部块。</li><li>Model runner 能替换 reference backend 与真实 kernel backend。</li><li>固定请求 trace 可以重放，比较输出和调度事件。</li><li>benchmark 同时记录 TTFT、TPOT、吞吐、显存和失败条件。</li></ol>
+<p>这些测试分别建立控制面、资源面和数据面的证据。只有单请求文本正确，不能证明它已经是可靠的推理系统。</p>
+<h2 id="section-10">当前边界</h2>
+<p>mini-infer 已覆盖核心机制和若干真实 backend 教学入口，但生产级容错、大规模 MoE/EP、完整 P/D 基础设施与 Omni 异构流水仍应按“概念、原型、真实后端、性能验证”四级标注，不能用同名 feature 混淆完成度。</p>
+<h2 id="section-11">延伸学习</h2>
+<p>建议按 <code>L01 → L02 → L03 → L04</code> 阅读：先建立执行循环，再理解 Paged KV、Continuous Batching 和缓存/抢占。完成后再进入投机解码、真实 kernel、量化和分布式章节。</p>
+<h2 id="section-12">参考资料</h2>
+<ul><li><a href="https://docs.vllm.ai/en/stable/">vLLM 官方文档</a></li><li><a href="https://docs.sglang.ai/">SGLang 官方文档</a></li><li><a href="https://github.com/vllm-project/vllm-omni">vLLM-Omni 官方仓库</a></li></ul>
+<p>资料核验日期：2026-08-04。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">项目目标</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">四个核心边界</a><a class="toc-level-3" href="#section-4">请求状态</a><a class="toc-level-3" href="#section-5">调度器</a><a class="toc-level-3" href="#section-6-kv-cache">KV Cache 管理器</a><a class="toc-level-3" href="#section-7">模型执行器</a><a class="toc-level-2" href="#section-8-engine-step">为什么不能把所有前沿能力塞进一个 Engine.step</a><a class="toc-level-2" href="#section-9">如何验收架构而不只是输出</a><a class="toc-level-2" href="#section-10">当前边界</a><a class="toc-level-2" href="#section-11">延伸学习</a><a class="toc-level-2" href="#section-12">参考资料</a></div></aside></div>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="inference-framework-comparison.html"><span>上一篇</span><strong>vLLM、SGLang 与 vLLM-Omni 应该如何比较</strong></a><a href="prefix-cache-radix-attention.html"><span>下一篇</span><strong>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><span>MyStudy 技术博客</span></footer>
+</body>
+</html>

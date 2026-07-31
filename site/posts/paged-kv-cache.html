@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。">
+  <title>Paged KV Cache 解决的不是注意力计算，而是显存管理 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/paged-kv-cache.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="Paged KV Cache 解决的不是注意力计算，而是显存管理">
+  <meta property="og:description" content="从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/paged-kv-cache.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Paged KV Cache 解决的不是注意力计算，而是显存管理">
+  <meta name="twitter:description" content="从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。">
+  <meta property="article:published_time" content="2026-07-28">
+  <meta property="article:modified_time" content="2026-07-28">
+  <meta property="article:tag" content="PagedAttention">
+  <meta property="article:tag" content="KV Cache">
+  <meta property="article:tag" content="Memory Management">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Paged KV Cache 解决的不是注意力计算，而是显存管理", "description": "从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/paged-kv-cache.html", "datePublished": "2026-07-28", "dateModified": "2026-07-28", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["PagedAttention", "KV Cache", "Memory Management"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=20260731013651">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Paged KV Cache 解决的不是注意力计算，而是显存管理</h1><p class="blog-summary">从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。</p><div class="blog-byline"><time>2026-07-28</time><span>约 2 分钟</span><span>进阶</span></div><div class="blog-tags"><span>PagedAttention</span><span>KV Cache</span><span>Memory Management</span></div></header>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">问题背景</h2>
+<p>自回归生成需要保存每层注意力的 Key 和 Value。最直观的实现是为每个请求预留 <code>max_seq_len</code> 对应的连续空间，但真实请求长度差异很大：短请求浪费尾部空间，长请求又可能因为找不到足够大的连续区域而失败。</p>
+<h2 id="section-2">一句话结论</h2>
+<p>Paged KV Cache 把“序列逻辑位置”和“显存物理位置”分开：序列看到连续 token，内核通过 block table 找到离散物理块。它首先是一种内存管理设计，PagedAttention 是消费这种布局的执行内核。</p>
+<h2 id="section-3">三个核心对象</h2>
+<pre><code class="language-text">Sequence:    token 0 1 2 3 4 5 6
+Logical:     block 0       block 1
+Block table: [physical 7, physical 2]
+Allocator:   free=[0,1,3,4,5,6,...]</code></pre>
+<ul><li>逻辑块：请求内部的连续编号。</li><li>物理块：真实 KV Cache 存储单元。</li><li>block table：逻辑块到物理块的映射。</li></ul>
+<p>注意力 kernel 不能只收到一个连续 KV 指针，还必须收到 block table、每个序列的有效长度和块大小。这就是调度器、缓存管理器和 kernel 之间的元数据契约。</p>
+<h2 id="section-4">最小分配模拟</h2>
+<p>下面代码是 CPU 状态机模拟，不是 GPU PagedAttention 实测：</p>
+<pre><code class="language-python">class BlockPool:
+    def __init__(self, count):
+        self.free = list(range(count))
+        self.refs = [0] * count
+
+    def alloc(self):
+        if not self.free:
+            raise RuntimeError(&quot;KV blocks exhausted&quot;)
+        block = self.free.pop()
+        self.refs[block] = 1
+        return block
+
+    def release(self, block):
+        self.refs[block] -= 1
+        if self.refs[block] == 0:
+            self.free.append(block)</code></pre>
+<p>真实实现还需要处理共享前缀、copy-on-write、异常回滚和并发安全。引用计数错误通常不会立刻报错，而会表现为缓存泄漏或不同请求互相污染。</p>
+<h2 id="section-5">块大小不是越小越好</h2>
+<p>小块减少尾部碎片，但 block table 更长、元数据访问更多；大块降低映射开销，却增加请求最后一块的浪费。合理块大小取决于序列长度分布、kernel 支持和硬件访存特征，不能只看单请求峰值显存。</p>
+<h2 id="section-6">验收方法</h2>
+<ol><li>随机生成不同长度请求，核对已用块与理论值。</li><li>完成和取消请求后，空闲块数量必须恢复。</li><li>共享前缀释放一个请求时，公共块不能提前回收。</li><li>物理块顺序打乱后，输出仍应与连续 KV 参考实现一致。</li></ol>
+<p>本篇提供原理和模拟验证；真实收益必须在固定模型、块大小、并发分布和 GPU 上报告。</p>
+<h2 id="section-7">参考资料</h2>
+<ul><li><a href="https://arxiv.org/abs/2309.06180">PagedAttention 论文</a></li><li><a href="https://docs.vllm.ai/">vLLM 官方文档</a></li></ul>
+<p>资料核验日期：2026-07-28。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">三个核心对象</a><a class="toc-level-2" href="#section-4">最小分配模拟</a><a class="toc-level-2" href="#section-5">块大小不是越小越好</a><a class="toc-level-2" href="#section-6">验收方法</a><a class="toc-level-2" href="#section-7">参考资料</a></div></aside></div>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="llm-inference-request-lifecycle.html"><span>上一篇</span><strong>一次 LLM 推理请求到底经历了什么</strong></a><a href="continuous-batching.html"><span>下一篇</span><strong>Continuous Batching 为什么比静态批处理更适合在线生成</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><span>MyStudy 技术博客</span></footer>
+</body>
+</html>
