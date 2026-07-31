@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="520" viewBox="0 0 1120 520">
+  <defs>
+    <style>
+      .bg{fill:#fbfaf7}.box{fill:#fff;stroke:#2f3a44;stroke-width:2;rx:8}.soft{fill:#eef7f1}.warn{fill:#fff4df}.hot{fill:#fdecea}.blue{fill:#eef4ff}
+      .title{font:700 28px Arial, sans-serif;fill:#1f2933}.h{font:700 18px Arial, sans-serif;fill:#1f2933}.t{font:15px Arial, sans-serif;fill:#26323f}.small{font:13px Arial, sans-serif;fill:#3f4b57}
+      .arr{stroke:#334155;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dash{stroke-dasharray:7 6}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="1120" height="520"/>
+  <text x="40" y="48" class="title">Serving scheduler：把不规则请求变成高吞吐 token 流</text>
+
+  <rect x="45" y="95" width="210" height="125" class="box blue"/>
+  <text x="65" y="130" class="h">请求队列</text>
+  <text x="65" y="162" class="t">长 prompt / 短 prompt</text>
+  <text x="65" y="188" class="t">不同 max_tokens</text>
+  <text x="65" y="212" class="small">目标：控制等待时间</text>
+
+  <rect x="315" y="75" width="250" height="165" class="box warn"/>
+  <text x="340" y="112" class="h">Prefill 调度</text>
+  <text x="340" y="145" class="t">计算密集，处理整段 prompt</text>
+  <text x="340" y="173" class="t">可做 chunked prefill</text>
+  <text x="340" y="201" class="small">避免长上下文阻塞 decode</text>
+
+  <rect x="640" y="75" width="245" height="165" class="box soft"/>
+  <text x="665" y="112" class="h">Decode 调度</text>
+  <text x="665" y="145" class="t">每轮每请求生成 1 token</text>
+  <text x="665" y="173" class="t">continuous batching 合并执行</text>
+  <text x="665" y="201" class="small">目标：提升 GPU 利用率</text>
+
+  <rect x="930" y="95" width="145" height="125" class="box"/>
+  <text x="955" y="132" class="h">输出流</text>
+  <text x="955" y="164" class="t">TTFT</text>
+  <text x="955" y="191" class="t">TPOT</text>
+
+  <path d="M255 158 H315" class="arr"/>
+  <path d="M565 158 H640" class="arr"/>
+  <path d="M885 158 H930" class="arr"/>
+
+  <rect x="315" y="300" width="250" height="135" class="box"/>
+  <text x="340" y="334" class="h">Prefix cache</text>
+  <text x="340" y="365" class="t">复用相同 system prompt</text>
+  <text x="340" y="392" class="t">减少重复 prefill</text>
+  <text x="340" y="418" class="small">RAG / Agent 很常见</text>
+
+  <rect x="640" y="300" width="245" height="135" class="box hot"/>
+  <text x="665" y="334" class="h">Paged KV cache</text>
+  <text x="665" y="365" class="t">把 KV cache 分页管理</text>
+  <text x="665" y="392" class="t">降低碎片和搬移成本</text>
+  <text x="665" y="418" class="small">vLLM PagedAttention 核心思想</text>
+
+  <path d="M440 240 V300" class="arr dash"/>
+  <path d="M762 240 V300" class="arr dash"/>
+  <path d="M565 368 H640" class="arr dash"/>
+</svg>

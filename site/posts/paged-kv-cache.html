@@ -44,7 +44,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Paged KV Cache 解决的不是注意力计算，而是显存管理</h1><p class="blog-summary">从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。</p><div class="blog-byline"><time>2026-07-28</time><span>约 2 分钟</span><span>进阶</span></div><div class="blog-tags"><span>PagedAttention</span><span>KV Cache</span><span>Memory Management</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Paged KV Cache 解决的不是注意力计算，而是显存管理</h1><p class="blog-summary">从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。</p><div class="blog-byline"><time>2026-07-28</time><span>约 3 分钟</span><span>进阶</span></div><div class="blog-tags"><span>PagedAttention</span><span>KV Cache</span><span>Memory Management</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>MEMORY SYSTEM</span><h2>逻辑 token 与物理 KV 块解耦</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>逻辑序列</strong></div><div class="tech-node"><span>02</span><strong>Block Table</strong></div><div class="tech-node"><span>03</span><strong>物理页</strong></div><div class="tech-node"><span>04</span><strong>Attention</strong></div></div>
@@ -55,6 +55,7 @@
 <h2 id="section-2">一句话结论</h2>
 <p>Paged KV Cache 把“序列逻辑位置”和“显存物理位置”分开：序列看到连续 token，内核通过 block table 找到离散物理块。它首先是一种内存管理设计，PagedAttention 是消费这种布局的执行内核。</p>
 <h2 id="section-3">三个核心对象</h2>
+<figure class="course-figure figure-system" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：推理调度、Paged KV Cache 与长上下文的系统关系"><img src="../assets/scheduler-kv-longcontext.svg" alt="推理调度、Paged KV Cache 与长上下文的系统关系"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>推理调度、Paged KV Cache 与长上下文的系统关系</span><em>系统 / 架构</em></figcaption></figure>
 <pre><code class="language-text">Sequence:    token 0 1 2 3 4 5 6
 Logical:     block 0       block 1
 Block table: [physical 7, physical 2]
@@ -85,9 +86,18 @@ Allocator:   free=[0,1,3,4,5,6,...]</code></pre>
 <h2 id="section-6">验收方法</h2>
 <ol><li>随机生成不同长度请求，核对已用块与理论值。</li><li>完成和取消请求后，空闲块数量必须恢复。</li><li>共享前缀释放一个请求时，公共块不能提前回收。</li><li>物理块顺序打乱后，输出仍应与连续 KV 参考实现一致。</li></ol>
 <p>本篇提供原理和模拟验证；真实收益必须在固定模型、块大小、并发分布和 GPU 上报告。</p>
-<h2 id="section-7">参考资料</h2>
+<h2 id="section-7-block-table-attention">Block table 如何进入 Attention</h2>
+<p>逻辑 token <code>t</code> 先定位逻辑块，再由 block table 找到物理块：</p>
+<pre><code class="language-python">logical_block = token_pos // block_size
+offset = token_pos % block_size
+physical_block = block_table[request_id, logical_block]
+kv_slot = physical_block * block_size + offset</code></pre>
+<p>Paged Attention kernel 必须按这层间接寻址读取 K/V。只实现分配器、却仍把 KV 拼成连续 tensor，并没有完成分页执行。</p>
+<table><tr><th>操作</th><th>必须保持的不变量</th></tr><tr><td>allocate</td><td><code>free + allocated = total</code></td></tr><tr><td>append</td><td>token 逻辑顺序可恢复</td></tr><tr><td>fork/share</td><td>引用增加但不复制物理块</td></tr><tr><td>release</td><td>引用归零才回收</td></tr><tr><td>cancel/error</td><td>重复清理不会 double free</td></tr></table>
+<p>推荐用随机状态机连续执行 allocate/append/fork/release，并在每一步检查不变量，比少量 happy case 更容易发现泄漏。</p>
+<h2 id="section-8">参考资料</h2>
 <ul><li><a href="https://arxiv.org/abs/2309.06180">PagedAttention 论文</a></li><li><a href="https://docs.vllm.ai/">vLLM 官方文档</a></li></ul>
-<p>资料核验日期：2026-07-28。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">三个核心对象</a><a class="toc-level-2" href="#section-4">最小分配模拟</a><a class="toc-level-2" href="#section-5">块大小不是越小越好</a><a class="toc-level-2" href="#section-6">验收方法</a><a class="toc-level-2" href="#section-7">参考资料</a></div></aside></div>
+<p>资料核验日期：2026-07-28。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">三个核心对象</a><a class="toc-level-2" href="#section-4">最小分配模拟</a><a class="toc-level-2" href="#section-5">块大小不是越小越好</a><a class="toc-level-2" href="#section-6">验收方法</a><a class="toc-level-2" href="#section-7-block-table-attention">Block table 如何进入 Attention</a><a class="toc-level-2" href="#section-8">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="llm-inference-request-lifecycle.html"><span>上一篇</span><strong>一次 LLM 推理请求到底经历了什么</strong></a><a href="continuous-batching.html"><span>下一篇</span><strong>Continuous Batching 为什么比静态批处理更适合在线生成</strong></a></nav>

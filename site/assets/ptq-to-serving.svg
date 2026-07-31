@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="500" viewBox="0 0 1120 500">
+  <defs>
+    <style>
+      .bg{fill:#fffdf8}.box{fill:#fff;stroke:#263445;stroke-width:2;rx:8}.a{fill:#eef7ff}.b{fill:#f4f0ff}.c{fill:#eefbf1}.d{fill:#fff4df}.e{fill:#fdeff2}
+      .title{font:700 28px Arial, sans-serif;fill:#111827}.h{font:700 18px Arial, sans-serif;fill:#111827}.t{font:15px Arial, sans-serif;fill:#374151}.s{font:13px Arial, sans-serif;fill:#4b5563}
+      .arr{stroke:#334155;stroke-width:2.6;fill:none;marker-end:url(#arrow)}.dash{stroke-dasharray:8 7}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="1120" height="500"/>
+  <text x="42" y="50" class="title">PTQ 到部署：算法结果必须变成 runtime 能消费的产物</text>
+
+  <rect x="45" y="105" width="185" height="125" class="box a"/>
+  <text x="70" y="140" class="h">校准数据</text>
+  <text x="70" y="172" class="t">真实 prompt 分布</text>
+  <text x="70" y="198" class="t">长短样本覆盖</text>
+  <text x="70" y="220" class="s">决定 activation range</text>
+
+  <rect x="280" y="105" width="185" height="125" class="box b"/>
+  <text x="305" y="140" class="h">量化算法</text>
+  <text x="305" y="172" class="t">SmoothQuant / AWQ</text>
+  <text x="305" y="198" class="t">GPTQ / AutoRound</text>
+  <text x="305" y="220" class="s">决定 scale/group/敏感层</text>
+
+  <rect x="515" y="105" width="185" height="125" class="box c"/>
+  <text x="540" y="140" class="h">量化产物</text>
+  <text x="540" y="172" class="t">int 权重 + scale</text>
+  <text x="540" y="198" class="t">zero point / group size</text>
+  <text x="540" y="220" class="s">必须和 config 对齐</text>
+
+  <rect x="750" y="105" width="185" height="125" class="box d"/>
+  <text x="775" y="140" class="h">Runtime kernel</text>
+  <text x="775" y="172" class="t">W4A16 / W8A8 GEMM</text>
+  <text x="775" y="198" class="t">KV quant / fused ops</text>
+  <text x="775" y="220" class="s">决定实际加速</text>
+
+  <rect x="965" y="105" width="115" height="125" class="box e"/>
+  <text x="985" y="140" class="h">上线</text>
+  <text x="985" y="172" class="t">质量</text>
+  <text x="985" y="198" class="t">性能</text>
+  <text x="985" y="220" class="s">回滚</text>
+
+  <path d="M230 168 H280" class="arr"/>
+  <path d="M465 168 H515" class="arr"/>
+  <path d="M700 168 H750" class="arr"/>
+  <path d="M935 168 H965" class="arr"/>
+
+  <rect x="170" y="310" width="245" height="100" class="box"/>
+  <text x="195" y="343" class="h">质量验证</text>
+  <text x="195" y="374" class="t">perplexity / task eval / 对话集</text>
+  <text x="195" y="399" class="s">先找损失来自哪类样本</text>
+
+  <rect x="470" y="310" width="245" height="100" class="box"/>
+  <text x="495" y="343" class="h">性能验证</text>
+  <text x="495" y="374" class="t">TTFT / TPOT / tokens/s / 显存</text>
+  <text x="495" y="399" class="s">确认 kernel 真正命中</text>
+
+  <rect x="770" y="310" width="225" height="100" class="box"/>
+  <text x="795" y="343" class="h">兼容性验证</text>
+  <text x="795" y="374" class="t">runtime 支持的 bit/group</text>
+  <text x="795" y="399" class="s">tokenizer/config/revision 固定</text>
+
+  <path d="M607 230 V290 H292 V310" class="arr dash"/>
+  <path d="M842 230 V290 H592 V310" class="arr dash"/>
+  <path d="M842 230 V310" class="arr dash"/>
+</svg>

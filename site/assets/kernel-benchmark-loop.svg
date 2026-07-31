@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="620" viewBox="0 0 1180 620">
+<rect width="1180" height="620" fill="#f8fafc"/>
+<style>
+.title{font-family:Inter,Microsoft YaHei,Arial;font-size:30px;font-weight:800;fill:#0f172a}
+.sub{font-family:Inter,Microsoft YaHei,Arial;font-size:18px;font-weight:800;fill:#0f172a}
+.txt{font-family:Inter,Microsoft YaHei,Arial;font-size:15px;fill:#334155}
+.small{font-family:Inter,Microsoft YaHei,Arial;font-size:13px;fill:#64748b}
+.box{fill:#ffffff;stroke:#cbd5e1;stroke-width:2;rx:12}
+.blue{fill:#e0f2fe;stroke:#38bdf8;stroke-width:2;rx:12}
+.green{fill:#dcfce7;stroke:#22c55e;stroke-width:2;rx:12}
+.orange{fill:#ffedd5;stroke:#fb923c;stroke-width:2;rx:12}
+.purple{fill:#ede9fe;stroke:#8b5cf6;stroke-width:2;rx:12}
+.arrow{stroke:#64748b;stroke-width:3;fill:none;marker-end:url(#arrow)}
+</style>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker></defs>
+<text x="48" y="58" class="title">真实算子 Benchmark 闭环</text>
+<text x="48" y="92" class="txt">同一个算子要从数学语义、baseline、正确性、计时、roofline 到 profile 证据全部打通，才能比较 PyTorch / CUDA / Triton / Ascend C。</text>
+<rect class="blue" x="70" y="150" width="190" height="120"/><text class="sub" x="112" y="190">语义</text><text class="txt" x="112" y="226">输入输出</text><text class="txt" x="112" y="252">dtype/shape</text>
+<rect class="green" x="330" y="150" width="190" height="120"/><text class="sub" x="368" y="190">Baseline</text><text class="txt" x="368" y="226">Python/PyTorch</text><text class="txt" x="368" y="252">golden output</text>
+<rect class="orange" x="590" y="150" width="190" height="120"/><text class="sub" x="632" y="190">Kernel</text><text class="txt" x="632" y="226">Triton/CUDA</text><text class="txt" x="632" y="252">Ascend C</text>
+<rect class="purple" x="850" y="150" width="210" height="120"/><text class="sub" x="892" y="190">证据</text><text class="txt" x="892" y="226">correctness</text><text class="txt" x="892" y="252">latency/profile</text>
+<path class="arrow" d="M260 210 H330"/><path class="arrow" d="M520 210 H590"/><path class="arrow" d="M780 210 H850"/>
+<rect class="box" x="110" y="360" width="960" height="150"/><text class="sub" x="150" y="405">比较原则</text><text class="txt" x="150" y="442">固定 shape、dtype、warmup、重复次数、同步方式和误差阈值。不要把异步 launch 时间当 kernel 时间，也不要只看平均值。</text><text class="small" x="150" y="482">先判定 memory-bound / compute-bound / launch-bound，再决定优化方向：合并访存、提高复用、换 tile、融合 epilogue 或减少 launch。</text></rect>
+</svg>

@@ -44,7 +44,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>一次 LLM 推理请求到底经历了什么</h1><p class="blog-summary">从请求进入服务到 token 流式返回，建立连接调度、KV Cache、Prefill、Decode 和采样的完整系统视图。</p><div class="blog-byline"><time>2026-07-27</time><span>约 5 分钟</span><span>入门到进阶</span></div><div class="blog-tags"><span>LLM Inference</span><span>Scheduling</span><span>KV Cache</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>一次 LLM 推理请求到底经历了什么</h1><p class="blog-summary">从请求进入服务到 token 流式返回，建立连接调度、KV Cache、Prefill、Decode 和采样的完整系统视图。</p><div class="blog-byline"><time>2026-07-27</time><span>约 6 分钟</span><span>入门到进阶</span></div><div class="blog-tags"><span>LLM Inference</span><span>Scheduling</span><span>KV Cache</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>REQUEST LIFECYCLE</span><h2>一次请求如何穿过推理系统</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>API 接入</strong></div><div class="tech-node"><span>02</span><strong>调度队列</strong></div><div class="tech-node"><span>03</span><strong>模型执行</strong></div><div class="tech-node"><span>04</span><strong>流式返回</strong></div></div>
@@ -56,6 +56,7 @@
 <h2 id="section-2">一句话结论</h2>
 <p>现代 LLM 推理引擎不是单纯的模型执行器，而是一套围绕“请求状态、显存块和每轮 token 预算”不断做资源决策的在线系统。</p>
 <h2 id="section-3">完整请求链路</h2>
+<figure class="course-figure figure-system" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：LLM 在线推理系统全景：接入、调度、执行、KV Cache 与输出"><img src="../assets/inference-serving-stack.svg" alt="LLM 在线推理系统全景：接入、调度、执行、KV Cache 与输出"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>LLM 在线推理系统全景：接入、调度、执行、KV Cache 与输出</span><em>系统 / 架构</em></figcaption></figure>
 <p>一次典型请求可以抽象为：</p>
 <pre><code class="language-text">HTTP / API 请求
     → 参数校验与分词
@@ -105,9 +106,16 @@
 <p>本篇是原理与源码阅读导图，没有给出特定 GPU 的实测 benchmark。后续文章会分别拆解 PagedAttention、Continuous Batching 和 Chunked Prefill，并映射到 mini-infer 的具体模块。</p>
 <h2 id="section-12">延伸学习</h2>
 <p>MyStudy 的 <code>mini-infer</code> 课程会从最小执行循环开始，逐步加入调度、Paged KV、前缀缓存、投机解码、结构化输出和多模态能力。阅读本文后，建议先找到请求对象、调度器、KV Cache 管理器和模型执行器四个边界，再进入具体优化。</p>
-<h2 id="section-13">参考资料</h2>
+<h2 id="section-13">一次请求的状态机与观测面</h2>
+<pre><code class="language-text">WAITING → PREFILLING → DECODING → FINISHED
+   │          │            │          ↑
+   └─cancel───┴────error────┴──────────┘</code></pre>
+<p>状态迁移必须和 KV 块、采样 RNG、网络连接、取消信号保持一致。请求停止输出不等于 GPU 工作与显存已经释放；清理路径必须幂等。</p>
+<table><tr><th>层级</th><th>必须记录</th><th>用来回答</th></tr><tr><td>请求</td><td>queue/prefill/decode 时间、TTFT、TPOT</td><td>用户为何慢</td></tr><tr><td>调度</td><td>token budget、抢占与完成数</td><td>GPU 在服务谁</td></tr><tr><td>缓存</td><td>已用/空闲块、命中、引用计数</td><td>显存为何涨</td></tr><tr><td>执行</td><td>kernel 时间、batch token 数</td><td>算力是否有效</td></tr><tr><td>输出</td><td>采样参数、停止原因、token 数</td><td>结果能否复现</td></tr></table>
+<p>验收要构造长短请求混排、客户端取消、OOM 前压力和固定随机种子。只有 happy path 能生成文本，还不足以证明生命周期正确。</p>
+<h2 id="section-14">参考资料</h2>
 <ul><li><a href="https://docs.vllm.ai/">vLLM 官方文档</a></li><li><a href="https://docs.sglang.ai/">SGLang 官方文档</a></li><li><a href="https://arxiv.org/abs/2309.06180">PagedAttention 论文</a></li></ul>
-<p>资料核验日期：2026-07-27。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">完整请求链路</a><a class="toc-level-2" href="#section-4-prefill-decode">Prefill 和 Decode 为什么必须区分</a><a class="toc-level-2" href="#section-5">调度器每轮真正决定什么</a><a class="toc-level-2" href="#section-6-kv-cache">KV Cache 为什么成为系统核心</a><a class="toc-level-2" href="#section-7">常见误区与失败模式</a><a class="toc-level-3" href="#section-8">吞吐高不等于体验好</a><a class="toc-level-3" href="#section-9-gpu">GPU 利用率高不等于系统健康</a><a class="toc-level-3" href="#section-10">能生成正确文本不等于调度正确</a><a class="toc-level-2" href="#section-11">如何验证一个最小推理框架</a><a class="toc-level-2" href="#section-12">延伸学习</a><a class="toc-level-2" href="#section-13">参考资料</a></div></aside></div>
+<p>资料核验日期：2026-07-27。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">完整请求链路</a><a class="toc-level-2" href="#section-4-prefill-decode">Prefill 和 Decode 为什么必须区分</a><a class="toc-level-2" href="#section-5">调度器每轮真正决定什么</a><a class="toc-level-2" href="#section-6-kv-cache">KV Cache 为什么成为系统核心</a><a class="toc-level-2" href="#section-7">常见误区与失败模式</a><a class="toc-level-3" href="#section-8">吞吐高不等于体验好</a><a class="toc-level-3" href="#section-9-gpu">GPU 利用率高不等于系统健康</a><a class="toc-level-3" href="#section-10">能生成正确文本不等于调度正确</a><a class="toc-level-2" href="#section-11">如何验证一个最小推理框架</a><a class="toc-level-2" href="#section-12">延伸学习</a><a class="toc-level-2" href="#section-13">一次请求的状态机与观测面</a><a class="toc-level-2" href="#section-14">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
   <nav class="blog-pager" aria-label="文章导航"><span></span><a href="paged-kv-cache.html"><span>下一篇</span><strong>Paged KV Cache 解决的不是注意力计算，而是显存管理</strong></a></nav>

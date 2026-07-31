@@ -44,7 +44,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">框架观察</p><h1>vLLM、SGLang 与 vLLM-Omni 应该如何比较</h1><p class="blog-summary">不用功能数量排名，而是从执行对象、缓存调度、扩展规模和多模态阶段四个维度建立框架选型方法。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>进阶</span></div><div class="blog-tags"><span>vLLM</span><span>SGLang</span><span>vLLM-Omni</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">框架观察</p><h1>vLLM、SGLang 与 vLLM-Omni 应该如何比较</h1><p class="blog-summary">不用功能数量排名，而是从执行对象、缓存调度、扩展规模和多模态阶段四个维度建立框架选型方法。</p><div class="blog-byline"><time>2026-07-31</time><span>约 3 分钟</span><span>进阶</span></div><div class="blog-tags"><span>vLLM</span><span>SGLang</span><span>vLLM-Omni</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>FRAMEWORK SELECTION</span><h2>从工作负载反推推理框架</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>业务负载</strong></div><div class="tech-node"><span>02</span><strong>调度能力</strong></div><div class="tech-node"><span>03</span><strong>Kernel 生态</strong></div><div class="tech-node"><span>04</span><strong>运维成本</strong></div></div>
@@ -53,6 +53,7 @@
   <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">先说结论</h2>
 <p>三个项目不能只用同一张功能勾选表排名。vLLM 面向广覆盖的模型服务运行时，SGLang 强调前缀复用、调度和大规模服务能力，vLLM-Omni 则把问题扩展到文本、图像、音频、视频等异构阶段流水线。选型应从 workload 和运维边界出发。</p>
 <h2 id="section-2">四个比较维度</h2>
+<figure class="course-figure figure-concept" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：LLM Serving 部署栈：API、调度、执行、Kernel 与硬件"><img src="../assets/deployment-stack.svg" alt="LLM Serving 部署栈：API、调度、执行、Kernel 与硬件"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>LLM Serving 部署栈：API、调度、执行、Kernel 与硬件</span><em>概念图</em></figcaption></figure>
 <table><tr><th>维度</th><th>vLLM</th><th>SGLang</th><th>vLLM-Omni</th></tr><tr><td>核心执行对象</td><td>通用模型请求与 token budget</td><td>请求、前缀树与缓存感知调度</td><td>多模态异构 stage</td></tr><tr><td>代表性缓存设计</td><td>Paged KV、prefix caching</td><td>RadixAttention、分层缓存</td><td>按阶段传递状态与媒体表示</td></tr><tr><td>扩展重点</td><td>模型覆盖、kernel、分布式和服务接口</td><td>高复用 workload、MoE、P/D 与可观测性</td><td>AR、DiT、codec 等跨阶段流水</td></tr><tr><td>主要复杂度</td><td>广泛组合的兼容与性能</td><td>缓存、调度、公平性耦合</td><td>不同执行循环和资源的协调</td></tr></table>
 <p>这张表是架构阅读框架，不替代具体版本兼容矩阵。</p>
 <h2 id="section-3">不应怎样选</h2>
@@ -67,9 +68,15 @@
 <h2 id="section-8">选型清单</h2>
 <ol><li>明确模型与任务：文本、VLM、embedding 还是生成媒体。</li><li>固定请求到达和长度分布。</li><li>明确 TTFT、TPOT、吞吐和尾延迟目标。</li><li>核对硬件、量化与 kernel 组合。</li><li>验证观测、故障恢复和发布能力。</li></ol>
 <p>框架迭代很快，本篇只对核验日期负责，部署前必须重新检查 stable 文档与 release notes。</p>
-<h2 id="section-9">参考资料</h2>
+<h2 id="section-9-workload">用同一份 workload 做决策</h2>
+<p>框架比较必须固定模型、权重精度、GPU、并发到达轨迹、prompt/output 长度分布和采样参数。推荐至少保留三类 workload：离线吞吐、在线稳态和突发流量。</p>
+<table><tr><th>指标</th><th>回答的问题</th><th>常见误用</th></tr><tr><td>TTFT P95</td><td>用户多久看到首 token</td><td>只报平均值</td></tr><tr><td>TPOT P95</td><td>流式输出是否平稳</td><td>与 TTFT 混成总延迟</td></tr><tr><td>goodput</td><td>满足 SLO 的有效吞吐</td><td>只看最大 tokens/s</td></tr><tr><td>KV 利用率</td><td>长上下文容量如何</td><td>只看模型权重显存</td></tr><tr><td>故障恢复</td><td>worker 异常影响多大</td><td>单机 happy path 代替</td></tr></table>
+<h2 id="section-10">选型结论应带条件</h2>
+<p>一个合格结论应写成：“在模型 X、GPU Y、长度分布 Z、TTFT/TPOT SLO 下，框架 A 的 goodput 更高，代价是某能力或运维复杂度。”框架版本和 feature 演进很快，因此本文提供的是比较方法，不把任何静态排名包装成永久事实。</p>
+<p>多模态框架还要分别记录预处理、encoder、LLM prefill/decode 和跨阶段数据传输；把它们合成一个 tokens/s 会隐藏真正瓶颈。</p>
+<h2 id="section-11">参考资料</h2>
 <ul><li><a href="https://docs.vllm.ai/en/stable/">vLLM 官方文档</a></li><li><a href="https://docs.sglang.ai/">SGLang 官方文档</a></li><li><a href="https://github.com/vllm-project/vllm-omni">vLLM-Omni 官方仓库</a></li></ul>
-<p>资料核验日期：2026-08-02。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先说结论</a><a class="toc-level-2" href="#section-2">四个比较维度</a><a class="toc-level-2" href="#section-3">不应怎样选</a><a class="toc-level-3" href="#section-4-feature">只数 feature</a><a class="toc-level-3" href="#section-5-tokens-s">用单个 tokens/s 决定</a><a class="toc-level-3" href="#section-6-omni">把 Omni 当作“多一个图片输入”</a><a class="toc-level-2" href="#section-7-mini-infer">miniinfer 应该学什么</a><a class="toc-level-2" href="#section-8">选型清单</a><a class="toc-level-2" href="#section-9">参考资料</a></div></aside></div>
+<p>资料核验日期：2026-08-02。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先说结论</a><a class="toc-level-2" href="#section-2">四个比较维度</a><a class="toc-level-2" href="#section-3">不应怎样选</a><a class="toc-level-3" href="#section-4-feature">只数 feature</a><a class="toc-level-3" href="#section-5-tokens-s">用单个 tokens/s 决定</a><a class="toc-level-3" href="#section-6-omni">把 Omni 当作“多一个图片输入”</a><a class="toc-level-2" href="#section-7-mini-infer">miniinfer 应该学什么</a><a class="toc-level-2" href="#section-8">选型清单</a><a class="toc-level-2" href="#section-9-workload">用同一份 workload 做决策</a><a class="toc-level-2" href="#section-10">选型结论应带条件</a><a class="toc-level-2" href="#section-11">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="flashattention-online-softmax.html"><span>上一篇</span><strong>FlashAttention 为什么不是“更快的 Softmax”</strong></a><a href="mini-infer-architecture.html"><span>下一篇</span><strong>mini-infer 为什么把推理引擎拆成四个边界</strong></a></nav>

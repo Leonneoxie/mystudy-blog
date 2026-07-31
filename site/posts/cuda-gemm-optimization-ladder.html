@@ -45,7 +45,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈</h1><p class="blog-summary">用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。</p><div class="blog-byline"><time>2026-07-31</time><span>约 4 分钟</span><span>进阶</span></div><div class="blog-tags"><span>CUDA</span><span>GEMM</span><span>Tensor Core</span><span>Profiling</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈</h1><p class="blog-summary">用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。</p><div class="blog-byline"><time>2026-07-31</time><span>约 5 分钟</span><span>进阶</span></div><div class="blog-tags"><span>CUDA</span><span>GEMM</span><span>Tensor Core</span><span>Profiling</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>GEMM OPTIMIZATION</span><h2>从正确 kernel 到接近硬件上限</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Naive</strong></div><div class="tech-node"><span>02</span><strong>Shared Tile</strong></div><div class="tech-node"><span>03</span><strong>Register Tile</strong></div><div class="tech-node"><span>04</span><strong>Tensor Core</strong></div></div>
@@ -56,6 +56,7 @@
 <p>$$ C_{M\times N}=A_{M\times K}B_{K\times N} $$</p>
 <p>但它同时暴露了 GPU 优化的核心矛盾：全局内存带宽、数据复用、线程映射、寄存器压力、occupancy、指令吞吐和硬件矩阵单元。几乎所有深度学习算子优化都能在 GEMM 中找到对应概念。</p>
 <p>真正有效的学习方式不是直接阅读最终 Tensor Core kernel，而是保留一条可测量的演进阶梯。</p>
+<figure class="course-figure figure-flow" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：GEMM 分块流程：全局内存、Shared Memory tile 与线程计算映射"><img src="../assets/gemm-tiling.svg" alt="GEMM 分块流程：全局内存、Shared Memory tile 与线程计算映射"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>GEMM 分块流程：全局内存、Shared Memory tile 与线程计算映射</span><em>流程 / 闭环</em></figcaption></figure>
 <h2 id="section-2-g0">G0：先建立可信基线</h2>
 <p>基线包含两个对象：</p>
 <ul><li>正确性 oracle：<code>torch.matmul</code> 或 cuBLAS；</li><li>最小 CUDA kernel：每个线程计算一个 $C_{ij}$。</li></ul>
@@ -130,9 +131,22 @@ gemm_g5_tensorcore.cu
 benchmark.json
 profile-notes.md</code></pre>
 <p>每个版本都应该能独立编译、对拍和 benchmark。最终优化版本很重要，但版本之间的因果关系更重要。</p>
-<h2 id="section-11">参考资料</h2>
+<figure class="course-figure figure-flow" data-figure-number="2"><button class="figure-zoom" type="button" aria-label="放大图示：真实 kernel benchmark 闭环：构建、对拍、计时、Profiler 与回归"><img src="../assets/kernel-benchmark-loop.svg" alt="真实 kernel benchmark 闭环：构建、对拍、计时、Profiler 与回归"><span aria-hidden="true">放大</span></button><figcaption><b>图 2</b><span>真实 kernel benchmark 闭环：构建、对拍、计时、Profiler 与回归</span><em>流程 / 闭环</em></figcaption></figure>
+<h2 id="section-11">一组可复现的实验矩阵</h2>
+<p>不要只测方阵。LLM 中的 GEMM 经常是 <code>M</code> 很小、<code>K/N</code> 很大的矩形：</p>
+<table><tr><th>场景</th><th>示例 shape <code>(M,N,K)</code></th><th>代表含义</th><th>首要观察</th></tr><tr><td>方阵教学</td><td><code>(1024,1024,1024)</code></td><td>验证 tiling</td><td>吞吐、占用率</td></tr><tr><td>Prefill</td><td><code>(2048,4096,4096)</code></td><td>多 token 投影</td><td>Tensor Core、带宽</td></tr><tr><td>Decode</td><td><code>(1,4096,4096)</code></td><td>单 token GEMV 化</td><td>launch、权重读取</td></tr><tr><td>小批 Decode</td><td><code>(16,4096,4096)</code></td><td>continuous batching</td><td>batch 拐点</td></tr><tr><td>非整除边界</td><td><code>(257,769,513)</code></td><td>尾块与 mask</td><td>正确性、分支</td></tr></table>
+<p>每个版本先通过 <code>torch.testing.assert_close</code>，再固定 warmup、iters 和时钟条件计时。结果表应同时保存毫秒、TFLOPS、相对 G0 加速比和 cuBLAS 比值，避免“只比自己的慢 baseline 快很多”。</p>
+<h2 id="section-12">优化决策示例</h2>
+<pre><code class="language-text">Global Load Efficiency 低  → 改线程到地址的映射
+Shared Memory 冲突明显    → 处理 bank conflict / padding
+Occupancy 低且寄存器过多  → 缩小 register tile
+访存已好但流水有气泡      → 双缓冲或异步拷贝
+SIMT 接近上限             → 评估 WMMA / MMA / CUTLASS
+Decode 的 M≈1             → 改看 GEMV 路径，不硬套方阵 kernel</code></pre>
+<p>Profiler 证据应决定下一步。若没有观察到对应瓶颈，就不应仅因为某个技巧“更高级”而加入代码。生产选择仍要比较 cuBLAS、cuBLASLt 或 CUTLASS；手写实现未超过库并不等于实验失败，只要报告能够解释差距。</p>
+<h2 id="section-13">参考资料</h2>
 <ul><li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/">CUDA C++ Programming Guide</a></li><li><a href="https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/">CUDA C++ Best Practices Guide</a></li><li><a href="https://docs.nvidia.com/nsight-compute/">Nsight Compute Documentation</a></li></ul>
-<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1-gemm">为什么 GEMM 适合学习优化</a><a class="toc-level-2" href="#section-2-g0">G0：先建立可信基线</a><a class="toc-level-2" href="#section-3-g1-shared-memory-tiling">G1：Shared Memory Tiling</a><a class="toc-level-2" href="#section-4-g2-register-tiling">G2：Register Tiling</a><a class="toc-level-2" href="#section-5-g3">G3：合并访存和向量化</a><a class="toc-level-2" href="#section-6-g4">G4：双缓冲与异步拷贝</a><a class="toc-level-2" href="#section-7-g5-tensor-core">G5：Tensor Core</a><a class="toc-level-2" href="#section-8-roofline">用 Roofline 决定下一步</a><a class="toc-level-2" href="#section-9-profile">Profile 应该看哪些指标</a><a class="toc-level-2" href="#section-10">推荐的教程产物</a><a class="toc-level-2" href="#section-11">参考资料</a></div></aside></div>
+<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1-gemm">为什么 GEMM 适合学习优化</a><a class="toc-level-2" href="#section-2-g0">G0：先建立可信基线</a><a class="toc-level-2" href="#section-3-g1-shared-memory-tiling">G1：Shared Memory Tiling</a><a class="toc-level-2" href="#section-4-g2-register-tiling">G2：Register Tiling</a><a class="toc-level-2" href="#section-5-g3">G3：合并访存和向量化</a><a class="toc-level-2" href="#section-6-g4">G4：双缓冲与异步拷贝</a><a class="toc-level-2" href="#section-7-g5-tensor-core">G5：Tensor Core</a><a class="toc-level-2" href="#section-8-roofline">用 Roofline 决定下一步</a><a class="toc-level-2" href="#section-9-profile">Profile 应该看哪些指标</a><a class="toc-level-2" href="#section-10">推荐的教程产物</a><a class="toc-level-2" href="#section-11">一组可复现的实验矩阵</a><a class="toc-level-2" href="#section-12">优化决策示例</a><a class="toc-level-2" href="#section-13">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/operator-lab" target="_blank" rel="noopener">查看本文源码</a></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="prefill-decode-scheduling.html"><span>上一篇</span><strong>Prefill 与 Decode 为什么会争抢同一块 GPU</strong></a><a href="first-custom-cuda-operator.html"><span>下一篇</span><strong>第一个自定义 CUDA 算子：从能运行到可交付</strong></a></nav>

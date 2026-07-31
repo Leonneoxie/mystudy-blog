@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="740" viewBox="0 0 1260 740">
+
+<defs>
+  <style>
+    .title{font:700 28px Arial, "Microsoft YaHei", sans-serif; fill:#172033}
+    .sub{font:600 16px Arial, "Microsoft YaHei", sans-serif; fill:#34415c}
+    .txt{font:14px Arial, "Microsoft YaHei", sans-serif; fill:#243047}
+    .small{font:12px Arial, "Microsoft YaHei", sans-serif; fill:#4b5875}
+    .box{rx:8; ry:8; fill:#ffffff; stroke:#9fb2d6; stroke-width:1.4}
+    .box2{rx:8; ry:8; fill:#f7fbff; stroke:#9bd1c6; stroke-width:1.4}
+    .warn{rx:8; ry:8; fill:#fff8ed; stroke:#f0b66d; stroke-width:1.4}
+    .line{stroke:#6b7a99; stroke-width:2; fill:none; marker-end:url(#arrow)}
+  </style>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7a99"/>
+  </marker>
+</defs>
+
+<rect width="1260" height="740" fill="#f7f9fc"/>
+<text class="title" x="48" y="58">LLM 推理服务栈</text>
+<text class="txt" x="48" y="88">推理加速是模型、KV cache、调度、kernel、网络 API 和观测系统共同决定的。</text>
+<rect class="box" x="60" y="150" width="190" height="132"/>
+<text class="sub" x="84" y="188">请求</text>
+<text class="txt" x="84" y="224">API</text>
+<text class="txt" x="84" y="250">tokenizer</text>
+<text class="txt" x="84" y="276">chat template</text>
+<rect class="box2" x="297" y="150" width="190" height="132"/>
+<text class="sub" x="321" y="188">调度</text>
+<text class="txt" x="321" y="224">queue</text>
+<text class="txt" x="321" y="250">batching</text>
+<text class="txt" x="321" y="276">priority</text>
+<path class="line" d="M250 216 H297"/>
+<rect class="box2" x="534" y="150" width="190" height="132"/>
+<text class="sub" x="558" y="188">KV 管理</text>
+<text class="txt" x="558" y="224">paged cache</text>
+<text class="txt" x="558" y="250">prefix/radix</text>
+<text class="txt" x="558" y="276">offload</text>
+<path class="line" d="M487 216 H534"/>
+<rect class="warn" x="771" y="150" width="190" height="132"/>
+<text class="sub" x="795" y="188">执行</text>
+<text class="txt" x="795" y="224">prefill/decode</text>
+<text class="txt" x="795" y="250">attention/gemm</text>
+<text class="txt" x="795" y="276">sampling</text>
+<path class="line" d="M724 216 H771"/>
+<rect class="warn" x="1008" y="150" width="190" height="132"/>
+<text class="sub" x="1032" y="188">观测</text>
+<text class="txt" x="1032" y="224">TTFT/TPOT</text>
+<text class="txt" x="1032" y="250">p95/p99</text>
+<text class="txt" x="1032" y="276">quality</text>
+<path class="line" d="M961 216 H1008"/>
+<rect class="box" x="150" y="430" width="960" height="126"/>
+<text class="sub" x="184" y="468">工程判断</text>
+<text class="txt" x="184" y="506">每个环节都要能回答：瓶颈在哪里、指标怎么测、改动是否真的提升、质量有没有回退。</text>
+<text class="small" x="184" y="534">不要只报 tokens/s，要同时报告质量、延迟分位、显存、成本和可复现配置。</text>
+</svg>

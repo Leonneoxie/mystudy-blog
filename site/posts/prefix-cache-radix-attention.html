@@ -44,7 +44,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</h1><p class="blog-summary">比较块哈希缓存和 radix tree 前缀缓存，说明命中、引用、驱逐和 cache-aware scheduling 的系统联系。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>进阶</span></div><div class="blog-tags"><span>Prefix Cache</span><span>RadixAttention</span><span>SGLang</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</h1><p class="blog-summary">比较块哈希缓存和 radix tree 前缀缓存，说明命中、引用、驱逐和 cache-aware scheduling 的系统联系。</p><div class="blog-byline"><time>2026-07-31</time><span>约 3 分钟</span><span>进阶</span></div><div class="blog-tags"><span>Prefix Cache</span><span>RadixAttention</span><span>SGLang</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>PREFIX REUSE</span><h2>把公共前缀变成可复用计算资产</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Token Prefix</strong></div><div class="tech-node"><span>02</span><strong>Radix Tree</strong></div><div class="tech-node"><span>03</span><strong>KV 引用</strong></div><div class="tech-node"><span>04</span><strong>命中/淘汰</strong></div></div>
@@ -55,6 +55,7 @@
 <h2 id="section-2">一句话结论</h2>
 <p>块哈希缓存适合用固定 block 表达和查找共享前缀；radix tree 能表达任意粒度的公共路径。真正困难的不是“找到命中”，而是让匹配、引用计数、驱逐和调度保持一致。</p>
 <h2 id="section-3">两种表示</h2>
+<figure class="course-figure figure-concept" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：调度器、KV Cache 与长上下文优化的关系图"><img src="../assets/scheduler-kv-longcontext.svg" alt="调度器、KV Cache 与长上下文优化的关系图"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>调度器、KV Cache 与长上下文优化的关系图</span><em>概念图</em></figcaption></figure>
 <pre><code class="language-text">Block hash:
   hash(tokens[0:16]) -&gt; physical block 7
 
@@ -72,9 +73,15 @@ Radix tree:
 <h2 id="section-7">验收清单</h2>
 <ol><li>相同前缀命中后，输出与无缓存路径一致。</li><li>只差一个 token 的请求在正确位置分叉。</li><li>不同模型或 adapter 不发生错误共享。</li><li>驱逐后物理块计数恢复。</li><li>命中率提升同时报告公平性和尾延迟。</li></ol>
 <p>本篇为源码结构和状态机说明，不包含 GPU 性能实测。</p>
-<h2 id="section-8">参考资料</h2>
+<h2 id="section-8">从请求到命中的例子</h2>
+<p>若已有前缀 <code>[system, A, B, C]</code>，新请求为 <code>[system, A, B, D]</code>，radix tree 可复用最长公共路径 <code>[system, A, B]</code>，并从 <code>D</code> 处分叉。块哈希缓存则以固定 block 为单位匹配，结构简单但复用粒度受 block size 限制。</p>
+<table><tr><th>维度</th><th>Block hash</th><th>Radix tree</th></tr><tr><td>匹配粒度</td><td>固定块</td><td>可变长路径</td></tr><tr><td>查询</td><td>哈希定位</td><td>前缀遍历</td></tr><tr><td>驱逐</td><td>块级 LRU 等</td><td>节点/子树与引用协同</td></tr><tr><td>适合</td><td>稳定块边界</td><td>大量共享可变前缀</td></tr></table>
+<h2 id="section-9">正确性与收益要分开验收</h2>
+<p>先验证命中后 logits 与无缓存路径一致，再测收益。工作负载应显式控制共享前缀比例、前缀长度、到达间隔和缓存容量，并报告 hit token ratio、TTFT、额外元数据开销与驱逐次数。命中率高不保证收益高：若前缀很短，查询和维护成本可能抵消节省的 prefill。</p>
+<p>缓存键至少包含 token IDs、模型/adapter 身份、影响 KV 的位置编码与多模态输入指纹。只对原始字符串哈希会在 tokenizer、模板或 adapter 改变时错误复用。</p>
+<h2 id="section-10">参考资料</h2>
 <ul><li><a href="https://docs.sglang.ai/">SGLang 官方文档</a></li><li><a href="https://docs.vllm.ai/">vLLM Automatic Prefix Caching</a></li></ul>
-<p>资料核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">两种表示</a><a class="toc-level-2" href="#section-4">缓存键必须包含什么</a><a class="toc-level-2" href="#section-5">调度为何要感知缓存</a><a class="toc-level-2" href="#section-6">驱逐与引用</a><a class="toc-level-2" href="#section-7">验收清单</a><a class="toc-level-2" href="#section-8">参考资料</a></div></aside></div>
+<p>资料核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">两种表示</a><a class="toc-level-2" href="#section-4">缓存键必须包含什么</a><a class="toc-level-2" href="#section-5">调度为何要感知缓存</a><a class="toc-level-2" href="#section-6">驱逐与引用</a><a class="toc-level-2" href="#section-7">验收清单</a><a class="toc-level-2" href="#section-8">从请求到命中的例子</a><a class="toc-level-2" href="#section-9">正确性与收益要分开验收</a><a class="toc-level-2" href="#section-10">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="mini-infer-architecture.html"><span>上一篇</span><strong>mini-infer 为什么把推理引擎拆成四个边界</strong></a><a href="qat-to-vllm-export-contract.html"><span>下一篇</span><strong>从 QAT 到 vLLM：量化模型真正可部署需要哪些契约</strong></a></nav>

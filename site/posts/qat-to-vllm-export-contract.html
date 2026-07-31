@@ -45,7 +45,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">低精度部署</p><h1>从 QAT 到 vLLM：量化模型真正可部署需要哪些契约</h1><p class="blog-summary">解释为什么训练阶段的 fake quant 和 QuantLinear 不能直接视为部署产物，并给出 Quant IR、标准格式 lowering、权重打包和真实 kernel 验收的完整链路。</p><div class="blog-byline"><time>2026-07-31</time><span>约 4 分钟</span><span>高级</span></div><div class="blog-tags"><span>QAT</span><span>vLLM</span><span>compressed-tensors</span><span>Quant IR</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">低精度部署</p><h1>从 QAT 到 vLLM：量化模型真正可部署需要哪些契约</h1><p class="blog-summary">解释为什么训练阶段的 fake quant 和 QuantLinear 不能直接视为部署产物，并给出 Quant IR、标准格式 lowering、权重打包和真实 kernel 验收的完整链路。</p><div class="blog-byline"><time>2026-07-31</time><span>约 6 分钟</span><span>高级</span></div><div class="blog-tags"><span>QAT</span><span>vLLM</span><span>compressed-tensors</span><span>Quant IR</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>QUANTIZATION DEPLOYMENT</span><h2>QAT 结果必须经过可验证的导出契约</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Fake Quant</strong></div><div class="tech-node"><span>02</span><strong>Quant IR</strong></div><div class="tech-node"><span>03</span><strong>Weight Pack</strong></div><div class="tech-node"><span>04</span><strong>vLLM Kernel</strong></div></div>
@@ -59,6 +59,7 @@
 <ul><li>它认识的量化配置；</li><li>指定名称的 packed tensors；</li><li>固定的 axis、group size、zero-point 约定；</li><li>tensor-parallel 下的切分布局；</li><li>能匹配这些布局的真实 kernel。</li></ul>
 <p>两者之间必须存在明确的 finalize、Quant IR、lowering 和 packing。</p>
 <h2 id="section-2">训练模型、数学语义和物理格式必须分层</h2>
+<figure class="course-figure figure-concept" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：量化算法家族图：PTQ、QAT、旋转、校准与部署路径"><img src="../assets/quant-algorithm-family.svg" alt="量化算法家族图：PTQ、QAT、旋转、校准与部署路径"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>量化算法家族图：PTQ、QAT、旋转、校准与部署路径</span><em>概念图</em></figcaption></figure>
 <p>推荐分为四层：</p>
 <pre><code class="language-text">QAT Training Graph
       ↓ freeze / finalize
@@ -89,6 +90,7 @@ vLLM Quantized Kernel</code></pre>
 <h3 id="section-6-runtime-kernel">Runtime Kernel</h3>
 <p>最终决定量化有没有产生实际收益。加载成功但先反量化成 FP16 GEMM，只能证明兼容，不能证明加速。</p>
 <h2 id="section-7">为什么推荐先导出标准格式</h2>
+<figure class="course-figure figure-flow" data-figure-number="2"><button class="figure-zoom" type="button" aria-label="放大图示：PTQ/QAT 到 Serving 的部署链路：模型、量化格式、Runtime 与 Kernel"><img src="../assets/ptq-to-serving.svg" alt="PTQ/QAT 到 Serving 的部署链路：模型、量化格式、Runtime 与 Kernel"><span aria-hidden="true">放大</span></button><figcaption><b>图 2</b><span>PTQ/QAT 到 Serving 的部署链路：模型、量化格式、Runtime 与 Kernel</span><em>流程 / 闭环</em></figcaption></figure>
 <p>如果 AMCT 或其他量化工具直接实现 <code>quant_amct</code> 自定义 vLLM 插件，就要长期维护：</p>
 <ul><li>vLLM QuantizationConfig；</li><li>Linear/MoE method；</li><li>权重加载器；</li><li>CUDA/NPU kernel；</li><li>tensor parallel；</li><li>fused QKV；</li><li>vLLM 版本适配。</li></ul>
 <p>如果量化语义可以映射到 compressed-tensors、GPTQ、AWQ 或 FP8，优先输出标准格式能够复用 vLLM 已有 loader 和 kernel。</p>
@@ -153,9 +155,23 @@ O3：vLLM 导出模型</code></pre>
 → 确认真实 W4 kernel
 → 记录 PPL、显存、prefill/decode 吞吐</code></pre>
 <p>达到这一步，才能说“量化模型已经从算法实验走到部署资产”。</p>
-<h2 id="section-15">延伸阅读</h2>
+<figure class="course-figure figure-flow" data-figure-number="3"><button class="figure-zoom" type="button" aria-label="放大图示：真实 Serving benchmark 闭环：质量、格式、加载、Kernel 与服务指标"><img src="../assets/serving-benchmark-loop.svg" alt="真实 Serving benchmark 闭环：质量、格式、加载、Kernel 与服务指标"><span aria-hidden="true">放大</span></button><figcaption><b>图 3</b><span>真实 Serving benchmark 闭环：质量、格式、加载、Kernel 与服务指标</span><em>流程 / 闭环</em></figcaption></figure>
+<h2 id="section-15-qwen3">以 Qwen3 小模型为例的适配清单</h2>
+<p>接入前先生成模块清单，不要直接全局替换 <code>nn.Linear</code>：</p>
+<pre><code class="language-python">for name, module in model.named_modules():
+    if isinstance(module, torch.nn.Linear):
+        print(name, module.in_features, module.out_features)</code></pre>
+<p>再按语义分类 <code>q/k/v/o_proj</code>、<code>gate/up/down_proj</code>、embedding、lm_head 与共享权重。每类明确量化轴、group size、排除规则、旋转策略和导出名称。Qwen3 的 GQA、RoPE、门控 MLP 与 tied embedding 都会影响映射，不能只凭类名替换。</p>
+<table><tr><th>阶段</th><th>最小产物</th><th>失败即停止</th></tr><tr><td>浮点基线</td><td>logits、困惑度/任务分数</td><td>基线不可复现</td></tr><tr><td>Fake quant</td><td>scale 与敏感层报告</td><td>NaN 或质量断崖</td></tr><tr><td>QAT</td><td>loss、梯度、冻结策略</td><td>训练图语义不清</td></tr><tr><td>Quant IR</td><td>dtype/axis/group/zero-point</td><td>无法无歧义表达</td></tr><tr><td>checkpoint</td><td>config、packed weights、映射</td><td>独立 reader 失败</td></tr><tr><td>vLLM</td><td>loader + 对应 kernel</td><td>静默反量化</td></tr><tr><td>Serving</td><td>质量、TTFT、TPOT、显存</td><td>仅能加载但无收益</td></tr></table>
+<h2 id="section-16-hadamard">Hadamard 与旋转量化如何判断是否适合</h2>
+<p>Hadamard/正交旋转把离群值能量摊到更多通道，使低比特误差更均匀。它不是一个随意打开的布尔开关：必须证明旋转能吸收到相邻权重，或由 runtime 的在线旋转 kernel 消费。</p>
+<p>应做四组消融：普通 PTQ、校准/平滑、离线可吸收旋转、在线旋转。固定 calibration 数据和评测集，比较层级 SQNR、最终质量、模型大小、加载时间与 TTFT/TPOT。若质量改善被在线旋转成本抵消，或 runtime 没有相应 kernel，该方案在当前部署目标下就不适合。</p>
+<h2 id="section-17-wrapper-linear">Wrapper、替换 Linear 与侵入式修改</h2>
+<ul><li><strong>Wrapper/graph transform</strong> 适合实验和 QAT：不改模型源码，按规则插入 fake quant；</li><li><strong>替换 Linear</strong> 适合原型，但必须处理共享权重、state dict 和非标准模块；</li><li><strong>修改模型源码</strong> 仅在语义无法由图变换表达时采用，维护成本最高；</li><li><strong>Export lowering</strong> 应独立于训练 wrapper，经 Canonical Quant IR 落到 vLLM 格式。</li></ul>
+<p>Brevitas 值得借鉴的是模块化 quantizer、图变换、export manager 和后端契约分层，而不只是 <code>QuantLinear</code>。AMCT 若要同时支持自有 runtime 与 vLLM，应共享规范化 Quant IR，再分别实现 backend lowering，避免两个导出器各自解释训练图。</p>
+<h2 id="section-18">延伸阅读</h2>
 <ul><li><a href="https://docs.vllm.ai/en/latest/features/quantization/">vLLM Quantization 文档</a></li><li><a href="https://github.com/vllm-project/compressed-tensors">compressed-tensors</a></li><li><a href="https://github.com/Xilinx/brevitas">Brevitas</a></li></ul>
-<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">最容易产生的误解</a><a class="toc-level-2" href="#section-2">训练模型、数学语义和物理格式必须分层</a><a class="toc-level-3" href="#section-3-qat-training-graph">QAT Training Graph</a><a class="toc-level-3" href="#section-4-canonical-quant-ir">Canonical Quant IR</a><a class="toc-level-3" href="#section-5-standard-checkpoint-format">Standard Checkpoint Format</a><a class="toc-level-3" href="#section-6-runtime-kernel">Runtime Kernel</a><a class="toc-level-2" href="#section-7">为什么推荐先导出标准格式</a><a class="toc-level-2" href="#section-8-compressed-tensors-lowering">compressedtensors lowering 需要做什么</a><a class="toc-level-2" href="#section-9-packing">权重 packing 为什么容易错</a><a class="toc-level-2" href="#section-10">模型名称映射是另一个高风险区</a><a class="toc-level-2" href="#section-11-oracle">四级 Oracle</a><a class="toc-level-2" href="#section-12-vllm">“vLLM 能加载”为什么不是完成</a><a class="toc-level-2" href="#section-13-qat">QAT 中什么应该学习</a><a class="toc-level-2" href="#section-14">一个可落地的完成定义</a><a class="toc-level-2" href="#section-15">延伸阅读</a></div></aside></div>
+<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">最容易产生的误解</a><a class="toc-level-2" href="#section-2">训练模型、数学语义和物理格式必须分层</a><a class="toc-level-3" href="#section-3-qat-training-graph">QAT Training Graph</a><a class="toc-level-3" href="#section-4-canonical-quant-ir">Canonical Quant IR</a><a class="toc-level-3" href="#section-5-standard-checkpoint-format">Standard Checkpoint Format</a><a class="toc-level-3" href="#section-6-runtime-kernel">Runtime Kernel</a><a class="toc-level-2" href="#section-7">为什么推荐先导出标准格式</a><a class="toc-level-2" href="#section-8-compressed-tensors-lowering">compressedtensors lowering 需要做什么</a><a class="toc-level-2" href="#section-9-packing">权重 packing 为什么容易错</a><a class="toc-level-2" href="#section-10">模型名称映射是另一个高风险区</a><a class="toc-level-2" href="#section-11-oracle">四级 Oracle</a><a class="toc-level-2" href="#section-12-vllm">“vLLM 能加载”为什么不是完成</a><a class="toc-level-2" href="#section-13-qat">QAT 中什么应该学习</a><a class="toc-level-2" href="#section-14">一个可落地的完成定义</a><a class="toc-level-2" href="#section-15-qwen3">以 Qwen3 小模型为例的适配清单</a><a class="toc-level-2" href="#section-16-hadamard">Hadamard 与旋转量化如何判断是否适合</a><a class="toc-level-2" href="#section-17-wrapper-linear">Wrapper、替换 Linear 与侵入式修改</a><a class="toc-level-2" href="#section-18">延伸阅读</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/llm-quantization-handbook" target="_blank" rel="noopener">查看本文源码</a></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="prefix-cache-radix-attention.html"><span>上一篇</span><strong>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</strong></a><a href="speculative-decoding-contract.html"><span>下一篇</span><strong>投机解码真正难在接受规则与状态回滚</strong></a></nav>

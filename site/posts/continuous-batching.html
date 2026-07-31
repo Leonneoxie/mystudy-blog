@@ -44,7 +44,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Continuous Batching 为什么比静态批处理更适合在线生成</h1><p class="blog-summary">用请求完成时间不同这一事实，解释连续批处理如何在每个解码步重新组织批次，并讨论吞吐与延迟边界。</p><div class="blog-byline"><time>2026-07-29</time><span>约 2 分钟</span><span>进阶</span></div><div class="blog-tags"><span>Continuous Batching</span><span>Scheduling</span><span>Throughput</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Continuous Batching 为什么比静态批处理更适合在线生成</h1><p class="blog-summary">用请求完成时间不同这一事实，解释连续批处理如何在每个解码步重新组织批次，并讨论吞吐与延迟边界。</p><div class="blog-byline"><time>2026-07-29</time><span>约 3 分钟</span><span>进阶</span></div><div class="blog-tags"><span>Continuous Batching</span><span>Scheduling</span><span>Throughput</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>SCHEDULING</span><h2>每个解码步都重新组织批次</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>新请求</strong></div><div class="tech-node"><span>02</span><strong>Running</strong></div><div class="tech-node"><span>03</span><strong>Token Step</strong></div><div class="tech-node"><span>04</span><strong>完成/补位</strong></div></div>
@@ -55,6 +55,7 @@
 <h2 id="section-2">一句话结论</h2>
 <p>Continuous Batching 在每轮迭代后移除已完成请求并接纳新请求，让批次成为动态状态，而不是一次性张量。</p>
 <h2 id="section-3">调度循环</h2>
+<figure class="course-figure figure-concept" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：Continuous batching 调度图：等待队列、运行批次、token budget 与 KV Cache"><img src="../assets/serving-scheduler.svg" alt="Continuous batching 调度图：等待队列、运行批次、token budget 与 KV Cache"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>Continuous batching 调度图：等待队列、运行批次、token budget 与 KV Cache</span><em>概念图</em></figcaption></figure>
 <pre><code class="language-python">while waiting or running:
     running = [req for req in running if not req.finished]
     while waiting and token_budget.can_admit(waiting[0]):
@@ -78,9 +79,19 @@
 <p>如果调度器和 KV 管理器没有收到取消事件，GPU 仍会为无人接收的请求生成 token。</p>
 <h2 id="section-10">最小验收</h2>
 <p>构造固定到达时间和输出长度的请求流，对比静态与连续批处理的有效槽位比例；随后检查每个请求输出、seed 稳定性和最终空闲块数量。该模拟能验证调度状态机，但不能替代 GPU 性能结论。</p>
-<h2 id="section-11">参考资料</h2>
+<h2 id="section-11">可执行的调度伪代码</h2>
+<pre><code class="language-python">while waiting or running:
+    reclaim_finished(running, kv_pool)
+    admit(waiting, running, token_budget, kv_pool)
+    batch = build_step_batch(running)
+    logits = model.forward(batch)
+    update_requests(running, logits)</code></pre>
+<p>难点在四个动词：<code>reclaim</code> 必须幂等，<code>admit</code> 同时满足 token 与 KV 预算，<code>build</code> 生成正确的 slot/block 映射，<code>update</code> 处理 EOS、取消和采样状态。</p>
+<table><tr><th>策略</th><th>优点</th><th>风险</th><th>应观察</th></tr><tr><td>最大 batch</td><td>吞吐高</td><td>新请求 TTFT 恶化</td><td>等待时间分位数</td></tr><tr><td>优先短请求</td><td>平均延迟低</td><td>长请求饥饿</td><td>最大等待轮次</td></tr><tr><td>FCFS</td><td>行为直观</td><td>长 prefill 阻塞</td><td>队头阻塞时间</td></tr><tr><td>age + cost</td><td>平衡公平性</td><td>参数复杂</td><td>SLO 违约率</td></tr></table>
+<p>报告应给出固定 workload trace，避免分别挑选对各策略有利的输入。</p>
+<h2 id="section-12">参考资料</h2>
 <ul><li><a href="https://docs.vllm.ai/">vLLM 官方文档</a></li><li><a href="https://www.usenix.org/conference/osdi22/presentation/yu">Orca: A Distributed Serving System for Transformer-Based Generative Models</a></li></ul>
-<p>资料核验日期：2026-07-29。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">调度循环</a><a class="toc-level-2" href="#section-4">为什么吞吐会上升</a><a class="toc-level-2" href="#section-5">三种容易混淆的指标</a><a class="toc-level-2" href="#section-6">常见失败</a><a class="toc-level-3" href="#section-7-kv">已完成请求没有立即释放 KV</a><a class="toc-level-3" href="#section-8">随机数状态随批次位置变化</a><a class="toc-level-3" href="#section-9">取消只断开网络连接</a><a class="toc-level-2" href="#section-10">最小验收</a><a class="toc-level-2" href="#section-11">参考资料</a></div></aside></div>
+<p>资料核验日期：2026-07-29。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">调度循环</a><a class="toc-level-2" href="#section-4">为什么吞吐会上升</a><a class="toc-level-2" href="#section-5">三种容易混淆的指标</a><a class="toc-level-2" href="#section-6">常见失败</a><a class="toc-level-3" href="#section-7-kv">已完成请求没有立即释放 KV</a><a class="toc-level-3" href="#section-8">随机数状态随批次位置变化</a><a class="toc-level-3" href="#section-9">取消只断开网络连接</a><a class="toc-level-2" href="#section-10">最小验收</a><a class="toc-level-2" href="#section-11">可执行的调度伪代码</a><a class="toc-level-2" href="#section-12">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="paged-kv-cache.html"><span>上一篇</span><strong>Paged KV Cache 解决的不是注意力计算，而是显存管理</strong></a><a href="prefill-decode-scheduling.html"><span>下一篇</span><strong>Prefill 与 Decode 为什么会争抢同一块 GPU</strong></a></nav>

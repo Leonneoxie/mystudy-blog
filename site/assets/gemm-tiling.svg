@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720">
+
+<defs>
+  <style>
+    .title{font:700 28px Arial, "Microsoft YaHei", sans-serif; fill:#172033}
+    .sub{font:600 16px Arial, "Microsoft YaHei", sans-serif; fill:#34415c}
+    .txt{font:14px Arial, "Microsoft YaHei", sans-serif; fill:#243047}
+    .small{font:12px Arial, "Microsoft YaHei", sans-serif; fill:#4b5875}
+    .box{rx:8; ry:8; fill:#ffffff; stroke:#9fb2d6; stroke-width:1.4}
+    .box2{rx:8; ry:8; fill:#f7fbff; stroke:#9bd1c6; stroke-width:1.4}
+    .warn{rx:8; ry:8; fill:#fff8ed; stroke:#f0b66d; stroke-width:1.4}
+    .line{stroke:#6b7a99; stroke-width:2; fill:none; marker-end:url(#arrow)}
+  </style>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7a99"/>
+  </marker>
+</defs>
+
+<rect width="1240" height="720" fill="#f8fafc"/>
+<text class="title" x="48" y="58">GEMM Tiling：算子开发的必修课</text>
+<text class="txt" x="48" y="88">Matmul/GEMM 是 LLM 的核心，tile 决定数据复用、并行度和 Tensor Core 利用。</text>
+<rect class="box" x="90" y="150" width="250" height="150"/><text class="sub" x="122" y="188">A tile</text><text class="txt" x="122" y="226">BM x BK</text><text class="txt" x="122" y="252">从 global 搬入 shared</text><text class="txt" x="122" y="278">多次复用</text>
+<rect class="box2" x="440" y="150" width="250" height="150"/><text class="sub" x="472" y="188">B tile</text><text class="txt" x="472" y="226">BK x BN</text><text class="txt" x="472" y="252">按 K 分块</text><text class="txt" x="472" y="278">避免重复读</text>
+<rect class="warn" x="790" y="150" width="250" height="150"/><text class="sub" x="822" y="188">C tile</text><text class="txt" x="822" y="226">BM x BN</text><text class="txt" x="822" y="252">寄存器累加</text><text class="txt" x="822" y="278">最后写回</text>
+<path class="line" d="M340 225 H440"/><path class="line" d="M690 225 H790"/>
+<rect class="box" x="180" y="440" width="860" height="110"/><text class="txt" x="214" y="486">核心权衡：tile 太小复用差，tile 太大寄存器/shared memory 压力大；真实性能需要 profile 和 autotune。</text>
+</svg>

@@ -45,7 +45,7 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>FlashAttention 为什么不是“更快的 Softmax”</h1><p class="blog-summary">从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。</p><div class="blog-byline"><time>2026-07-31</time><span>约 4 分钟</span><span>进阶</span></div><div class="blog-tags"><span>FlashAttention</span><span>Online Softmax</span><span>CUDA</span><span>IO Awareness</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>FlashAttention 为什么不是“更快的 Softmax”</h1><p class="blog-summary">从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。</p><div class="blog-byline"><time>2026-07-31</time><span>约 5 分钟</span><span>进阶</span></div><div class="blog-tags"><span>FlashAttention</span><span>Online Softmax</span><span>CUDA</span><span>IO Awareness</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>FLASH ATTENTION</span><h2>分块计算如何保持精确 softmax</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>QKᵀ Tile</strong></div><div class="tech-node"><span>02</span><strong>Online Max</strong></div><div class="tech-node"><span>03</span><strong>Online Sum</strong></div><div class="tech-node"><span>04</span><strong>PV Accumulate</strong></div></div>
@@ -56,6 +56,7 @@
 <p>它必须同时满足两件事：</p>
 <ol><li>分块后的输出与标准 attention 数学等价；</li><li>HBM 读写量显著降低，节省的 IO 足以覆盖额外递推计算。</li></ol>
 <p>只实现一个 online softmax 函数，并不能自动得到 FlashAttention。</p>
+<figure class="course-figure figure-flow" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：FlashAttention 算子验证闭环：数学 oracle、分块状态、计时和回归"><img src="../assets/operator-validation-loop.svg" alt="FlashAttention 算子验证闭环：数学 oracle、分块状态、计时和回归"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>FlashAttention 算子验证闭环：数学 oracle、分块状态、计时和回归</span><em>流程 / 闭环</em></figcaption></figure>
 <h2 id="section-2-attention">标准 Attention 的问题发生在哪里</h2>
 <p>标准形式为：</p>
 <p>$$ S = QK^T / \sqrt{d}, \qquad P = \operatorname{softmax}(S), \qquad O = PV $$</p>
@@ -131,9 +132,18 @@ F3：tiled fused forward
 F4：causal 与边界优化
 F5：profile 驱动的 tile/warp 调优</code></pre>
 <p>最终版本不是唯一学习资产。每一级新增了什么、修复了什么瓶颈、牺牲了什么资源，才是算子优化教程真正应该留下的内容。</p>
-<h2 id="section-10">参考资料</h2>
+<h2 id="section-10-online-softmax">用一个小例子手算 online softmax</h2>
+<p>假设一行 score 分成 <code>S1=[1,2]</code>、<code>S2=[3,4]</code>。第一块最大值 <code>m1=2</code>，分母 <code>l1=e^-1+1</code>；合并第二块时，新最大值变为 <code>4</code>，旧状态必须重标定：</p>
+<p>$$m_2=4,\qquad l_2=e^{m_1-m_2}l_1 + e^{-1}+1$$</p>
+<p>输出累积量也要乘同一个因子。遗漏这一步，小随机输入可能看似接近，长序列或大幅值 score 会迅速失真。</p>
+<h2 id="section-11">前向实现契约</h2>
+<table><tr><th>契约</th><th>必须明确</th><th>常见错误</th></tr><tr><td>layout</td><td><code>B,H,N,D</code> 或 <code>B,N,H,D</code></td><td>stride 解释错误</td></tr><tr><td>scale</td><td>通常为 <code>1/sqrt(D)</code></td><td>oracle 与 kernel 重复缩放</td></tr><tr><td>mask</td><td>causal、padding、任意 mask</td><td>全遮蔽行产生 NaN</td></tr><tr><td>dtype</td><td>输入、累积、输出精度</td><td>FP16 累积误差放大</td></tr><tr><td>tail</td><td><code>N/D</code> 非 tile 整除</td><td>越界 load 污染 max</td></tr><tr><td>stream</td><td>当前 CUDA stream</td><td>隐式同步破坏流水</td></tr></table>
+<h2 id="section-12">实验矩阵与失败诊断</h2>
+<p>至少扫描 <code>N∈{1,31,32,33,127,128,129,512,2048}</code>、多个 head dimension、causal/non-causal 和 FP16/BF16，并记录 <code>max_abs_error</code>、P50/P95、峰值显存与基线名称。</p>
+<p>诊断顺序应是：先用 FP32 小矩阵逐元素比较 score、行最大值、分母和输出；再测极大幅值、全遮蔽行与非整除 tile；正确后才用 CUDA Event、Nsight Systems 和 Nsight Compute 定位性能。RTX A1000 6GB 等设备可以完成算法验证，但小 shape 趋势不能直接外推为数据中心 GPU 的生产结论。</p>
+<h2 id="section-13">参考资料</h2>
 <ul><li><a href="https://arxiv.org/abs/2205.14135">FlashAttention 论文</a></li><li><a href="https://arxiv.org/abs/2307.08691">FlashAttention-2 论文</a></li><li><a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html">PyTorch scaled dot product attention</a></li></ul>
-<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先给结论</a><a class="toc-level-2" href="#section-2-attention">标准 Attention 的问题发生在哪里</a><a class="toc-level-2" href="#section-3-online-softmax">Online Softmax 如何支持分块</a><a class="toc-level-2" href="#section-4">分块前向的状态机</a><a class="toc-level-2" href="#section-5-mask">因果 Mask 应该放在哪里</a><a class="toc-level-2" href="#section-6-tile">为什么 tile 越大不一定越快</a><a class="toc-level-2" href="#section-7">正确性验收不能只看一个输出</a><a class="toc-level-2" href="#section-8">性能验收应该回答什么</a><a class="toc-level-2" href="#section-9">从课程实现中应该学到什么</a><a class="toc-level-2" href="#section-10">参考资料</a></div></aside></div>
+<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先给结论</a><a class="toc-level-2" href="#section-2-attention">标准 Attention 的问题发生在哪里</a><a class="toc-level-2" href="#section-3-online-softmax">Online Softmax 如何支持分块</a><a class="toc-level-2" href="#section-4">分块前向的状态机</a><a class="toc-level-2" href="#section-5-mask">因果 Mask 应该放在哪里</a><a class="toc-level-2" href="#section-6-tile">为什么 tile 越大不一定越快</a><a class="toc-level-2" href="#section-7">正确性验收不能只看一个输出</a><a class="toc-level-2" href="#section-8">性能验收应该回答什么</a><a class="toc-level-2" href="#section-9">从课程实现中应该学到什么</a><a class="toc-level-2" href="#section-10-online-softmax">用一个小例子手算 online softmax</a><a class="toc-level-2" href="#section-11">前向实现契约</a><a class="toc-level-2" href="#section-12">实验矩阵与失败诊断</a><a class="toc-level-2" href="#section-13">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/operator-lab" target="_blank" rel="noopener">查看本文源码</a></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="first-custom-cuda-operator.html"><span>上一篇</span><strong>第一个自定义 CUDA 算子：从能运行到可交付</strong></a><a href="inference-framework-comparison.html"><span>下一篇</span><strong>vLLM、SGLang 与 vLLM-Omni 应该如何比较</strong></a></nav>

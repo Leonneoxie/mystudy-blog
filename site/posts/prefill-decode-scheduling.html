@@ -53,6 +53,7 @@
   <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">一句话结论</h2>
 <p>Prefill 偏计算密集，Decode 偏 KV Cache 读取和小批次调度；把它们直接混在一个无限制队列里，会让长提示词和在线生成互相干扰。</p>
 <h2 id="section-2">两类工作负载</h2>
+<figure class="course-figure figure-system" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：Serving 优化地图：Prefill、Decode、调度、缓存与并行策略"><img src="../assets/serving-optimization-map.svg" alt="Serving 优化地图：Prefill、Decode、调度、缓存与并行策略"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>Serving 优化地图：Prefill、Decode、调度、缓存与并行策略</span><em>系统 / 架构</em></figcaption></figure>
 <p>Prefill 对整段 prompt 建立 KV Cache，输入 token 多，矩阵乘法形状较大。Decode 每轮为每个序列增加少量 token，但反复读取历史 KV。两者对算力、带宽和延迟的需求不同。</p>
 <pre><code class="language-text">长 Prompt 进入
   ├─ 一次完成 Prefill：TTFT 可能较好，但正在 Decode 的请求出现抖动
@@ -66,9 +67,14 @@
 <h2 id="section-5">应该记录什么</h2>
 <ul><li>prompt 长度和输出长度分布；</li><li>TTFT、TPOT、吞吐及 P95/P99；</li><li>每轮 Prefill/Decode token 数；</li><li>KV 传输字节和等待时间；</li><li>chunk 大小变化带来的反例。</li></ul>
 <p>本篇是原理与调度契约说明，没有给出特定 GPU 的实测结论。</p>
-<h2 id="section-6">参考资料</h2>
+<h2 id="section-6-chunked-prefill">Chunked Prefill 的预算模型</h2>
+<p>设每轮最多处理 <code>T</code> 个 token，已有 <code>d</code> 个 decode 请求，可用于 prefill 的预算近似为 <code>T-d</code>。长 prompt 被切成 chunk 后插入多轮，避免一次 prefill 独占 GPU，但 chunk 太小会增加 launch 与调度开销。</p>
+<table><tr><th>选择</th><th>收益</th><th>代价</th></tr><tr><td>大 chunk</td><td>Prefill 效率高</td><td>Decode TPOT 抖动</td></tr><tr><td>小 chunk</td><td>更易保护 Decode SLO</td><td>launch 次数增加</td></tr><tr><td>固定 budget</td><td>行为稳定</td><td>不适应负载变化</td></tr><tr><td>SLO-aware</td><td>兼顾服务目标</td><td>控制器复杂</td></tr></table>
+<h2 id="section-7-p-d">P/D 分离的完成标准</h2>
+<p>P/D 分离不只是把两个函数放到两张卡。还要定义 KV 传输格式、完成通知、背压、失败恢复与路由。实验必须把 KV 迁移计入 TTFT，并分别报告 prefill compute、transfer、decode queue 和 decode compute，否则可能只是把计算收益换成网络等待。</p>
+<h2 id="section-8">参考资料</h2>
 <ul><li><a href="https://docs.vllm.ai/">vLLM Chunked Prefill 文档</a></li><li><a href="https://docs.sglang.ai/backend/pd_disaggregation.html">SGLang P/D Disaggregation</a></li></ul>
-<p>资料核验日期：2026-07-30。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">一句话结论</a><a class="toc-level-2" href="#section-2">两类工作负载</a><a class="toc-level-2" href="#section-3-chunked-prefill">Chunked Prefill 的作用</a><a class="toc-level-2" href="#section-4-p-d">P/D 分离不是同一个层次</a><a class="toc-level-2" href="#section-5">应该记录什么</a><a class="toc-level-2" href="#section-6">参考资料</a></div></aside></div>
+<p>资料核验日期：2026-07-30。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">一句话结论</a><a class="toc-level-2" href="#section-2">两类工作负载</a><a class="toc-level-2" href="#section-3-chunked-prefill">Chunked Prefill 的作用</a><a class="toc-level-2" href="#section-4-p-d">P/D 分离不是同一个层次</a><a class="toc-level-2" href="#section-5">应该记录什么</a><a class="toc-level-2" href="#section-6-chunked-prefill">Chunked Prefill 的预算模型</a><a class="toc-level-2" href="#section-7-p-d">P/D 分离的完成标准</a><a class="toc-level-2" href="#section-8">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="continuous-batching.html"><span>上一篇</span><strong>Continuous Batching 为什么比静态批处理更适合在线生成</strong></a><a href="cuda-gemm-optimization-ladder.html"><span>下一篇</span><strong>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈</strong></a></nav>
