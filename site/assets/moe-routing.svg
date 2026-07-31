@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="430" viewBox="0 0 1040 430">
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.box{fill:#fff;stroke:#334155;stroke-width:2;rx:8}.tok{fill:#eff6ff;stroke:#2563eb;stroke-width:2;rx:8}.router{fill:#fff7ed;stroke:#ea580c;stroke-width:2;rx:8}.expert{fill:#ecfdf5;stroke:#059669;stroke-width:2;rx:8}.warn{fill:#fef2f2;stroke:#dc2626;stroke-width:2;rx:8}
+      .text{font:16px Arial,sans-serif;fill:#0f172a}.muted{font:13px Arial,sans-serif;fill:#475569}.title{font:24px Arial,sans-serif;fill:#0f172a}.arrow{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#334155"/></marker>
+  </defs>
+  <rect class="bg" width="1040" height="430"/>
+  <text class="title" x="36" y="42">MoE Routing: 量化之外还要看 dispatch 和 load balance</text>
+  <rect class="tok" x="70" y="105" width="150" height="76"/><text class="text" x="115" y="136">Tokens</text><text class="muted" x="100" y="160">hidden states</text>
+  <path class="arrow" d="M220 143 L300 143"/>
+  <rect class="router" x="300" y="105" width="160" height="76"/><text class="text" x="350" y="136">Router</text><text class="muted" x="330" y="160">top-k experts</text>
+  <path class="arrow" d="M460 143 L555 90"/>
+  <path class="arrow" d="M460 143 L555 143"/>
+  <path class="arrow" d="M460 143 L555 196"/>
+  <rect class="expert" x="555" y="55" width="170" height="60"/><text class="text" x="602" y="90">Expert 0</text>
+  <rect class="expert" x="555" y="128" width="170" height="60"/><text class="text" x="602" y="163">Expert 1</text>
+  <rect class="expert" x="555" y="201" width="170" height="60"/><text class="text" x="602" y="236">Expert 2</text>
+  <path class="arrow" d="M725 158 L805 158"/>
+  <rect class="box" x="805" y="120" width="160" height="76"/><text class="text" x="850" y="152">Combine</text><text class="muted" x="834" y="176">weighted sum</text>
+  <rect class="warn" x="230" y="300" width="600" height="72"/><text class="text" x="260" y="330">Profile 必看</text><text class="muted" x="260" y="354">expert 是否负载均衡？dispatch/communication 是否盖过了低比特 matmul 收益？</text>
+</svg>

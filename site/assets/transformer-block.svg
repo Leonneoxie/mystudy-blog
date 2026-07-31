@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="420" viewBox="0 0 980 420">
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.box{fill:#fff;stroke:#334155;stroke-width:2;rx:8}.small{fill:#eef2ff;stroke:#4f46e5;stroke-width:2;rx:8}
+      .green{fill:#ecfdf5;stroke:#059669;stroke-width:2;rx:8}.orange{fill:#fff7ed;stroke:#ea580c;stroke-width:2;rx:8}
+      .text{font:16px Arial, sans-serif;fill:#0f172a}.muted{font:13px Arial, sans-serif;fill:#475569}
+      .arrow{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="980" height="420"/>
+  <text class="text" x="36" y="42" font-size="24">Transformer Decoder Block: 推理时每层反复经过的路径</text>
+  <rect class="box" x="60" y="90" width="135" height="70"/>
+  <text class="text" x="85" y="120">Token Emb</text><text class="muted" x="83" y="145">hidden states</text>
+  <path class="arrow" d="M195 125 L245 125"/>
+  <rect class="small" x="245" y="90" width="150" height="70"/>
+  <text class="text" x="280" y="119">RMSNorm</text><text class="muted" x="272" y="145">normalize</text>
+  <path class="arrow" d="M395 125 L445 125"/>
+  <rect class="green" x="445" y="70" width="190" height="110"/>
+  <text class="text" x="492" y="110">Attention</text>
+  <text class="muted" x="478" y="138">Q,K,V + RoPE</text>
+  <text class="muted" x="478" y="160">reads/writes KV cache</text>
+  <path class="arrow" d="M635 125 L685 125"/>
+  <rect class="box" x="685" y="90" width="150" height="70"/>
+  <text class="text" x="720" y="119">Residual</text><text class="muted" x="721" y="145">add</text>
+  <path class="arrow" d="M760 160 L760 215"/>
+  <rect class="small" x="685" y="215" width="150" height="70"/>
+  <text class="text" x="720" y="244">RMSNorm</text><text class="muted" x="721" y="270">normalize</text>
+  <path class="arrow" d="M685 250 L635 250"/>
+  <rect class="orange" x="445" y="205" width="190" height="95"/>
+  <text class="text" x="500" y="242">FFN / MoE</text>
+  <text class="muted" x="472" y="268">matmul or expert route</text>
+  <path class="arrow" d="M445 250 L395 250"/>
+  <rect class="box" x="245" y="215" width="150" height="70"/>
+  <text class="text" x="280" y="244">Residual</text><text class="muted" x="281" y="270">add</text>
+  <path class="arrow" d="M320 285 L320 335 L875 335"/>
+  <rect class="box" x="835" y="300" width="105" height="70"/>
+  <text class="text" x="862" y="329">Logits</text><text class="muted" x="852" y="355">sampling</text>
+  <text class="muted" x="66" y="378">量化加速要看命中哪一段：attention/KV、FFN/MoE、residual/norm、sampling/runtime。</text>
+</svg>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。">
+  <title>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/kimi-k3-architecture-analysis.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态">
+  <meta property="og:description" content="基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/kimi-k3-architecture-analysis.html">
+  <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态">
+  <meta name="twitter:description" content="基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。">
+  <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="Kimi K3">
+  <meta property="article:tag" content="KDA">
+  <meta property="article:tag" content="MoE">
+  <meta property="article:tag" content="Multimodal">
+  <meta property="article:tag" content="MXFP4">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态", "description": "基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/kimi-k3-architecture-analysis.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["Kimi K3", "KDA", "MoE", "Multimodal", "MXFP4"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">前沿模型</p><h1>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h1><p class="blog-summary">基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</p><div class="blog-byline"><time>2026-07-31</time><span>约 4 分钟</span><span>进阶</span></div><div class="blog-tags"><span>Kimi K3</span><span>KDA</span><span>MoE</span><span>Multimodal</span><span>MXFP4</span></div></header>
+  <section class="article-visual" aria-label="文章技术图解">
+  <div class="article-visual-head"><div><span>前沿模型</span><h2>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h2></div><strong>TECH MAP</strong></div>
+  <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Kimi K3</strong></div><div class="tech-node"><span>02</span><strong>KDA</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>Multimodal</strong></div></div>
+  <ul class="visual-takeaways"><li>基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</li></ul>
+</section>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">先给结论</h2>
+<p>Kimi K3 的重点不是单独某个新模块，而是四条路线同时推进：用 KDA/Gated MLA 面向百万上下文，用高稀疏 MoE 扩容量，用 Attention Residuals 改善深层信号传播，用原生视觉和长时 agentic 训练扩大任务边界。</p>
+<p>以下参数均来自 MoonshotAI 官方仓库；性能榜单属于官方报告结果，仍需结合 harness、工具和 reasoning budget 解读。</p>
+<h2 id="section-2-1">1. 官方架构快照</h2>
+<table><tr><th>项目</th><th>Kimi K3 官方规格</th><th>工程含义</th></tr><tr><td>总参数</td><td>2.8T</td><td>权重存储与分布式部署规模极大</td></tr><tr><td>激活参数</td><td>104B/token</td><td>单 token 计算远小于总参数但仍不小</td></tr><tr><td>层数</td><td>93</td><td>深层信号传播和流水并行重要</td></tr><tr><td>注意力组成</td><td>69 KDA + 24 Gated MLA</td><td>混合线性/压缩注意力路径</td></tr><tr><td>专家</td><td>896，选 16，另有 2 shared</td><td>高稀疏路由与通信挑战</td></tr><tr><td>上下文</td><td>1,048,576 token</td><td>缓存、状态压缩和调度成为核心</td></tr><tr><td>视觉编码器</td><td>MoonViT-V2，401M</td><td>原生图文/视频理解入口</td></tr><tr><td>部署精度</td><td>MXFP4 权重 / MXFP8 激活</td><td>从 SFT 阶段开始 QAT</td></tr></table>
+<h2 id="section-3-2-kda">2. KDA 解决什么问题</h2>
+<p>标准 softmax attention 的 KV 状态和计算随序列增长。Kimi Delta Attention 属于线性注意力路线，用可递推状态更新表达历史信息，使长上下文不必始终读取完整 K/V 序列。K3 没有把所有层都换成 KDA，而是保留 24 层 Gated MLA，说明工程目标是在线性效率与内容寻址能力之间组合，而不是宣称一种机制在所有层都更优。</p>
+<p>阅读 KDA 时应追踪四个对象：状态如何更新、遗忘/门控如何控制旧信息、并行训练如何实现、推理 kernel 是否真正避免线性增长的 KV 读取。</p>
+<h2 id="section-4-3-attention-residuals">3. Attention Residuals 为什么值得关注</h2>
+<p>传统 residual 主要把相邻层连接起来。Attention Residuals 让模型能够对多层历史表示进行注意力式聚合，目标是为超深网络提供更灵活的信息通路。它解决的是层间通信，不是 token 间 self-attention 的替代品。</p>
+<p>验收不能只看最终 benchmark，还应比较深层激活尺度、梯度稳定性、额外状态/通信量，以及推理阶段是否引入新的内存访问。</p>
+<h2 id="section-5-4-896">4. 896 专家的意义</h2>
+<figure class="course-figure figure-system" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：MoE 路由图：Token 在高稀疏专家系统中的 dispatch 与 combine"><img src="../assets/moe-routing.svg" alt="MoE 路由图：Token 在高稀疏专家系统中的 dispatch 与 combine"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>MoE 路由图：Token 在高稀疏专家系统中的 dispatch 与 combine</span><em>系统 / 架构</em></figcaption></figure>
+<p>K3 每 token 选择 16/896 专家，另有两个 shared expert。官方称 Stable LatentMoE 相比 K2 提升整体 scaling efficiency。对 Serving 而言，896 不是一个营销数字，而是 placement、路由偏斜、All-to-All 和专家小 GEMM 的共同压力。</p>
+<table><tr><th>必测项</th><th>原因</th></tr><tr><td>每层专家负载直方图</td><td>找热点和长尾专家</td></tr><tr><td>dispatch/combine 时间</td><td>判断通信是否吃掉稀疏收益</td></tr><tr><td>每专家 token 数</td><td>判断小 GEMM 利用率</td></tr><tr><td>shared expert 占比</td><td>计算路径并非完全稀疏</td></tr><tr><td>不同并发下 TPOT</td><td>batch 改变路由聚合效率</td></tr></table>
+<h2 id="section-6-5-ocr">5. 原生多模态不是外挂 OCR</h2>
+<figure class="course-figure figure-system" data-figure-number="2"><button class="figure-zoom" type="button" aria-label="放大图示：视觉多模态系统地图：编码、对齐、融合、生成与评测"><img src="../assets/vision-multimodal-map.svg" alt="视觉多模态系统地图：编码、对齐、融合、生成与评测"><span aria-hidden="true">放大</span></button><figcaption><b>图 2</b><span>视觉多模态系统地图：编码、对齐、融合、生成与评测</span><em>系统 / 架构</em></figcaption></figure>
+<p>K3 的官方定位是原生文本、图像与视频能力，配置包含 MoonViT-V2。分析时要分开视觉编码、token 压缩/对齐、语言模型融合和 agent 工具链。仅报告图片问答分数，无法证明长视频、文档视觉和工具调用的系统能力。</p>
+<h2 id="section-7-6-mxfp4-mxfp8-qat">6. MXFP4/MXFP8 QAT 的部署含义</h2>
+<p>K3 从 SFT 阶段开始用 MXFP4 权重、MXFP8 激活做 QAT。这里的创新不只是 checkpoint 更小，而是训练数值语义、导出 scale/格式和 runtime kernel 被提前统一。</p>
+<p>本课程可做的缩小实践是：在 Qwen3 小模型上模拟 block scale、FP4 权重 fake quant 与 FP8 激活，比较 PTQ 和 QAT，再验证导出格式是否被真实低精度 kernel 消费。不能因为 PyTorch 能加载量化参数，就宣称复现了 K3 的训练或硬件收益。</p>
+<h2 id="section-8-7">7. 百万上下文如何正确评测</h2>
+<p>需要同时报告准确性和成本：needle/retrieval 只是第一层，还应测试多跳关联、跨模态长文档、上下文干扰、prefill 时间、首 token 延迟、状态/KV 字节和长任务中的上下文压缩策略。</p>
+<p>官方说明某些 agent benchmark 使用工具或上下文压缩，因此比较模型时必须对齐 harness、工具权限、temperature、top-p 和 reasoning effort。</p>
+<h2 id="section-9-8">8. 课程实践路线</h2>
+<ol><li>在小张量实现 Delta-rule 状态更新并与序列 oracle 对拍；</li><li>比较 softmax、线性状态与混合层的内存增长；</li><li>用 CPU router 模拟 896/16 路由偏斜；</li><li>对 MXFP4/MXFP8 做数值仿真和导出契约；</li><li>把视觉 token 加入长上下文 workload；</li><li>明确哪些是原理复现、哪些需要大规模训练/集群才能验证。</li></ol>
+<h2 id="section-10">参考资料</h2>
+<ul><li><a href="https://github.com/MoonshotAI/Kimi-K3">Kimi K3 官方仓库</a></li><li><a href="https://github.com/MoonshotAI/Kimi-Linear">Kimi Linear / KDA 官方仓库</a></li><li><a href="https://github.com/MoonshotAI/Attention-Residuals">Attention Residuals 官方仓库</a></li><li><a href="https://github.com/MoonshotAI/MoonEP">MoonEP 官方仓库</a></li></ul>
+<p>资料核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先给结论</a><a class="toc-level-2" href="#section-2-1">1. 官方架构快照</a><a class="toc-level-2" href="#section-3-2-kda">2. KDA 解决什么问题</a><a class="toc-level-2" href="#section-4-3-attention-residuals">3. Attention Residuals 为什么值得关注</a><a class="toc-level-2" href="#section-5-4-896">4. 896 专家的意义</a><a class="toc-level-2" href="#section-6-5-ocr">5. 原生多模态不是外挂 OCR</a><a class="toc-level-2" href="#section-7-6-mxfp4-mxfp8-qat">6. MXFP4/MXFP8 QAT 的部署含义</a><a class="toc-level-2" href="#section-8-7">7. 百万上下文如何正确评测</a><a class="toc-level-2" href="#section-9-8">8. 课程实践路线</a><a class="toc-level-2" href="#section-10">参考资料</a></div></aside></div>
+  <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/learning-plans/knowledge-map/llm-accel" target="_blank" rel="noopener">查看本文源码</a></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="inference-framework-comparison.html"><span>上一篇</span><strong>vLLM、SGLang 与 vLLM-Omni 应该如何比较</strong></a><a href="mini-infer-architecture.html"><span>下一篇</span><strong>mini-infer 为什么把推理引擎拆成四个边界</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>
+</body>
+</html>

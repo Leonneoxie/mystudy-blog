@@ -38,12 +38,19 @@
 
     </nav>
   </header>
-  <main class="blog-main"><header class="blog-list-head"><p class="kicker">TAGS</p><h1>文章标签</h1><p>从主题入口发现文章，每个入口都对应稳定的站内锚点。</p></header><nav class="blog-facet-chips" aria-label="文章标签索引"><a href="#architecture">Architecture <span>1</span></a><a href="#cuda">CUDA <span>3</span></a><a href="#chunked-prefill">Chunked Prefill <span>1</span></a><a href="#continuous-batching">Continuous Batching <span>1</span></a><a href="#decode">Decode <span>1</span></a><a href="#flashattention">FlashAttention <span>1</span></a><a href="#gemm">GEMM <span>1</span></a><a href="#io-awareness">IO Awareness <span>1</span></a><a href="#inference-engine">Inference Engine <span>1</span></a><a href="#kv-cache">KV Cache <span>2</span></a><a href="#kv-rollback">KV Rollback <span>1</span></a><a href="#kernel-validation">Kernel Validation <span>1</span></a><a href="#llm-inference">LLM Inference <span>1</span></a><a href="#memory-management">Memory Management <span>1</span></a><a href="#nsight">Nsight <span>1</span></a><a href="#online-softmax">Online Softmax <span>1</span></a><a href="#pagedattention">PagedAttention <span>1</span></a><a href="#prefill">Prefill <span>1</span></a><a href="#prefix-cache">Prefix Cache <span>1</span></a><a href="#profiling">Profiling <span>1</span></a><a href="#pytorch-extension">PyTorch Extension <span>1</span></a><a href="#qat">QAT <span>1</span></a><a href="#quant-ir">Quant IR <span>1</span></a><a href="#radixattention">RadixAttention <span>1</span></a><a href="#sglang">SGLang <span>2</span></a><a href="#sampling">Sampling <span>1</span></a><a href="#scheduling">Scheduling <span>2</span></a><a href="#speculative-decoding">Speculative Decoding <span>1</span></a><a href="#tensor-core">Tensor Core <span>1</span></a><a href="#throughput">Throughput <span>1</span></a><a href="#compressed-tensors">compressed-tensors <span>1</span></a><a href="#mini-infer">mini-infer <span>1</span></a><a href="#vllm">vLLM <span>2</span></a><a href="#vllm-omni">vLLM-Omni <span>1</span></a></nav><section class="blog-facet-section" id="architecture"><div class="section-heading"><div><h2>Architecture</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/mini-infer-architecture.html">
+  <main class="blog-main"><header class="blog-list-head"><p class="kicker">TAGS</p><h1>文章标签</h1><p>从主题入口发现文章，每个入口都对应稳定的站内锚点。</p></header><nav class="blog-facet-chips" aria-label="文章标签索引"><a href="#architecture">Architecture <span>1</span></a><a href="#attention">Attention <span>1</span></a><a href="#cuda">CUDA <span>3</span></a><a href="#chunked-prefill">Chunked Prefill <span>1</span></a><a href="#continuous-batching">Continuous Batching <span>1</span></a><a href="#decode">Decode <span>1</span></a><a href="#deepseek-v4">DeepSeek V4 <span>1</span></a><a href="#expert-parallelism">Expert Parallelism <span>1</span></a><a href="#flashattention">FlashAttention <span>1</span></a><a href="#gemm">GEMM <span>1</span></a><a href="#io-awareness">IO Awareness <span>1</span></a><a href="#inference-engine">Inference Engine <span>1</span></a><a href="#kda">KDA <span>1</span></a><a href="#kv-cache">KV Cache <span>3</span></a><a href="#kv-rollback">KV Rollback <span>1</span></a><a href="#kernel-validation">Kernel Validation <span>1</span></a><a href="#kimi-k3">Kimi K3 <span>1</span></a><a href="#llm-foundation">LLM Foundation <span>1</span></a><a href="#llm-inference">LLM Inference <span>1</span></a><a href="#mla">MLA <span>1</span></a><a href="#mxfp4">MXFP4 <span>1</span></a><a href="#memory-management">Memory Management <span>1</span></a><a href="#moe">MoE <span>3</span></a><a href="#multimodal">Multimodal <span>1</span></a><a href="#muon">Muon <span>1</span></a><a href="#nsight">Nsight <span>1</span></a><a href="#online-softmax">Online Softmax <span>1</span></a><a href="#pagedattention">PagedAttention <span>1</span></a><a href="#prefill">Prefill <span>1</span></a><a href="#prefix-cache">Prefix Cache <span>1</span></a><a href="#profiling">Profiling <span>1</span></a><a href="#pytorch-extension">PyTorch Extension <span>1</span></a><a href="#qat">QAT <span>1</span></a><a href="#quant-ir">Quant IR <span>1</span></a><a href="#radixattention">RadixAttention <span>1</span></a><a href="#sglang">SGLang <span>2</span></a><a href="#sampling">Sampling <span>1</span></a><a href="#scheduling">Scheduling <span>2</span></a><a href="#serving">Serving <span>1</span></a><a href="#sparse-attention">Sparse Attention <span>1</span></a><a href="#speculative-decoding">Speculative Decoding <span>1</span></a><a href="#tensor-core">Tensor Core <span>1</span></a><a href="#throughput">Throughput <span>1</span></a><a href="#transformer">Transformer <span>1</span></a><a href="#compressed-tensors">compressed-tensors <span>1</span></a><a href="#mhc">mHC <span>1</span></a><a href="#mini-infer">mini-infer <span>1</span></a><a href="#vllm">vLLM <span>2</span></a><a href="#vllm-omni">vLLM-Omni <span>1</span></a></nav><section class="blog-facet-section" id="architecture"><div class="section-heading"><div><h2>Architecture</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/mini-infer-architecture.html">
   <div class="blog-card-visual" aria-hidden="true"><span>ENGINE ARCHITECTURE</span><div><div class="tech-node"><span>01</span><strong>Request State</strong></div><div class="tech-node"><span>02</span><strong>Scheduler</strong></div><div class="tech-node"><span>03</span><strong>KV Manager</strong></div><div class="tech-node"><span>04</span><strong>Model Runner</strong></div></div></div>
   <div class="blog-card-meta"><span>项目复盘</span><time>2026-07-31</time></div>
   <h2>mini-infer 为什么把推理引擎拆成四个边界</h2>
   <p>复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。</p>
   <div class="blog-tags"><span>mini-infer</span><span>Architecture</span><span>Inference Engine</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="attention"><div class="section-heading"><div><h2>Attention</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/transformer-from-attention-to-kv-cache.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型基础</span><div><div class="tech-node"><span>01</span><strong>Transformer</strong></div><div class="tech-node"><span>02</span><strong>Attention</strong></div><div class="tech-node"><span>03</span><strong>KV Cache</strong></div><div class="tech-node"><span>04</span><strong>LLM Foundation</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型基础</span><time>2026-07-31</time></div>
+  <h2>Transformer 入门：从 Self-Attention 到 KV Cache 的一条主线</h2>
+  <p>不从模型名词表入手，而是沿着张量 shape、注意力计算、残差与归一化、训练并行和推理 KV Cache，建立可计算、可调试的 Transformer 核心认知。</p>
+  <div class="blog-tags"><span>Transformer</span><span>Attention</span><span>KV Cache</span><span>LLM Foundation</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="cuda"><div class="section-heading"><div><h2>CUDA</h2></div><p>3 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/flashattention-online-softmax.html">
   <div class="blog-card-visual" aria-hidden="true"><span>FLASH ATTENTION</span><div><div class="tech-node"><span>01</span><strong>QKᵀ Tile</strong></div><div class="tech-node"><span>02</span><strong>Online Max</strong></div><div class="tech-node"><span>03</span><strong>Online Sum</strong></div><div class="tech-node"><span>04</span><strong>PV Accumulate</strong></div></div></div>
@@ -87,6 +94,20 @@
   <p>从计算密度和 KV 读取差异出发，理解 chunked prefill、token budget 与 P/D 分离分别解决什么问题。</p>
   <div class="blog-tags"><span>Prefill</span><span>Decode</span><span>Chunked Prefill</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="deepseek-v4"><div class="section-heading"><div><h2>DeepSeek V4</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/deepseek-v4-flash-pro-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>DeepSeek V4</strong></div><div class="tech-node"><span>02</span><strong>Sparse Attention</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>mHC</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h2>
+  <p>基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</p>
+  <div class="blog-tags"><span>DeepSeek V4</span><span>Sparse Attention</span><span>MoE</span><span>mHC</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="expert-parallelism"><div class="section-heading"><div><h2>Expert Parallelism</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/moe-mla-from-model-to-serving.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型架构</span><div><div class="tech-node"><span>01</span><strong>MoE</strong></div><div class="tech-node"><span>02</span><strong>MLA</strong></div><div class="tech-node"><span>03</span><strong>Expert Parallelism</strong></div><div class="tech-node"><span>04</span><strong>Serving</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型架构</span><time>2026-07-31</time></div>
+  <h2>MoE 与 MLA：参数规模、激活成本和推理系统如何连起来</h2>
+  <p>从路由公式、专家并行、负载均衡和 KV 压缩解释 MoE/MLA，不只谈模型参数，还分析它们对通信、缓存、Kernel 与在线调度的真实影响。</p>
+  <div class="blog-tags"><span>MoE</span><span>MLA</span><span>Expert Parallelism</span><span>Serving</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="flashattention"><div class="section-heading"><div><h2>FlashAttention</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/flashattention-online-softmax.html">
   <div class="blog-card-visual" aria-hidden="true"><span>FLASH ATTENTION</span><div><div class="tech-node"><span>01</span><strong>QKᵀ Tile</strong></div><div class="tech-node"><span>02</span><strong>Online Max</strong></div><div class="tech-node"><span>03</span><strong>Online Sum</strong></div><div class="tech-node"><span>04</span><strong>PV Accumulate</strong></div></div></div>
   <div class="blog-card-meta"><span>CUDA 与算子</span><time>2026-07-31</time></div>
@@ -115,7 +136,21 @@
   <p>复盘教学型推理框架如何划分请求状态、调度、KV Cache 和模型执行，并解释哪些生产能力不应硬塞进主循环。</p>
   <div class="blog-tags"><span>mini-infer</span><span>Architecture</span><span>Inference Engine</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
-</a></div></section><section class="blog-facet-section" id="kv-cache"><div class="section-heading"><div><h2>KV Cache</h2></div><p>2 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/paged-kv-cache.html">
+</a></div></section><section class="blog-facet-section" id="kda"><div class="section-heading"><div><h2>KDA</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/kimi-k3-architecture-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>Kimi K3</strong></div><div class="tech-node"><span>02</span><strong>KDA</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>Multimodal</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h2>
+  <p>基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</p>
+  <div class="blog-tags"><span>Kimi K3</span><span>KDA</span><span>MoE</span><span>Multimodal</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="kv-cache"><div class="section-heading"><div><h2>KV Cache</h2></div><p>3 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/transformer-from-attention-to-kv-cache.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型基础</span><div><div class="tech-node"><span>01</span><strong>Transformer</strong></div><div class="tech-node"><span>02</span><strong>Attention</strong></div><div class="tech-node"><span>03</span><strong>KV Cache</strong></div><div class="tech-node"><span>04</span><strong>LLM Foundation</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型基础</span><time>2026-07-31</time></div>
+  <h2>Transformer 入门：从 Self-Attention 到 KV Cache 的一条主线</h2>
+  <p>不从模型名词表入手，而是沿着张量 shape、注意力计算、残差与归一化、训练并行和推理 KV Cache，建立可计算、可调试的 Transformer 核心认知。</p>
+  <div class="blog-tags"><span>Transformer</span><span>Attention</span><span>KV Cache</span><span>LLM Foundation</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a><a class="blog-card" href="posts/paged-kv-cache.html">
   <div class="blog-card-visual" aria-hidden="true"><span>MEMORY SYSTEM</span><div><div class="tech-node"><span>01</span><strong>逻辑序列</strong></div><div class="tech-node"><span>02</span><strong>Block Table</strong></div><div class="tech-node"><span>03</span><strong>物理页</strong></div><div class="tech-node"><span>04</span><strong>Attention</strong></div></div></div>
   <div class="blog-card-meta"><span>推理系统</span><time>2026-07-28</time></div>
   <h2>Paged KV Cache 解决的不是注意力计算，而是显存管理</h2>
@@ -143,6 +178,20 @@
   <p>以向量加法为最小闭环，完整走过执行映射、PyTorch 扩展、正确性矩阵、CUDA Event 基准测试与 Nsight 诊断，并解释 baseline 到融合优化的演进依据。</p>
   <div class="blog-tags"><span>CUDA</span><span>PyTorch Extension</span><span>Kernel Validation</span><span>Nsight</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="kimi-k3"><div class="section-heading"><div><h2>Kimi K3</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/kimi-k3-architecture-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>Kimi K3</strong></div><div class="tech-node"><span>02</span><strong>KDA</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>Multimodal</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h2>
+  <p>基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</p>
+  <div class="blog-tags"><span>Kimi K3</span><span>KDA</span><span>MoE</span><span>Multimodal</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="llm-foundation"><div class="section-heading"><div><h2>LLM Foundation</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/transformer-from-attention-to-kv-cache.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型基础</span><div><div class="tech-node"><span>01</span><strong>Transformer</strong></div><div class="tech-node"><span>02</span><strong>Attention</strong></div><div class="tech-node"><span>03</span><strong>KV Cache</strong></div><div class="tech-node"><span>04</span><strong>LLM Foundation</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型基础</span><time>2026-07-31</time></div>
+  <h2>Transformer 入门：从 Self-Attention 到 KV Cache 的一条主线</h2>
+  <p>不从模型名词表入手，而是沿着张量 shape、注意力计算、残差与归一化、训练并行和推理 KV Cache，建立可计算、可调试的 Transformer 核心认知。</p>
+  <div class="blog-tags"><span>Transformer</span><span>Attention</span><span>KV Cache</span><span>LLM Foundation</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="llm-inference"><div class="section-heading"><div><h2>LLM Inference</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/llm-inference-request-lifecycle.html">
   <div class="blog-card-visual" aria-hidden="true"><span>REQUEST LIFECYCLE</span><div><div class="tech-node"><span>01</span><strong>API 接入</strong></div><div class="tech-node"><span>02</span><strong>调度队列</strong></div><div class="tech-node"><span>03</span><strong>模型执行</strong></div><div class="tech-node"><span>04</span><strong>流式返回</strong></div></div></div>
   <div class="blog-card-meta"><span>推理系统</span><time>2026-07-27</time></div>
@@ -150,12 +199,61 @@
   <p>从请求进入服务到 token 流式返回，建立连接调度、KV Cache、Prefill、Decode 和采样的完整系统视图。</p>
   <div class="blog-tags"><span>LLM Inference</span><span>Scheduling</span><span>KV Cache</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="mla"><div class="section-heading"><div><h2>MLA</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/moe-mla-from-model-to-serving.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型架构</span><div><div class="tech-node"><span>01</span><strong>MoE</strong></div><div class="tech-node"><span>02</span><strong>MLA</strong></div><div class="tech-node"><span>03</span><strong>Expert Parallelism</strong></div><div class="tech-node"><span>04</span><strong>Serving</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型架构</span><time>2026-07-31</time></div>
+  <h2>MoE 与 MLA：参数规模、激活成本和推理系统如何连起来</h2>
+  <p>从路由公式、专家并行、负载均衡和 KV 压缩解释 MoE/MLA，不只谈模型参数，还分析它们对通信、缓存、Kernel 与在线调度的真实影响。</p>
+  <div class="blog-tags"><span>MoE</span><span>MLA</span><span>Expert Parallelism</span><span>Serving</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="mxfp4"><div class="section-heading"><div><h2>MXFP4</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/kimi-k3-architecture-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>Kimi K3</strong></div><div class="tech-node"><span>02</span><strong>KDA</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>Multimodal</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h2>
+  <p>基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</p>
+  <div class="blog-tags"><span>Kimi K3</span><span>KDA</span><span>MoE</span><span>Multimodal</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="memory-management"><div class="section-heading"><div><h2>Memory Management</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/paged-kv-cache.html">
   <div class="blog-card-visual" aria-hidden="true"><span>MEMORY SYSTEM</span><div><div class="tech-node"><span>01</span><strong>逻辑序列</strong></div><div class="tech-node"><span>02</span><strong>Block Table</strong></div><div class="tech-node"><span>03</span><strong>物理页</strong></div><div class="tech-node"><span>04</span><strong>Attention</strong></div></div></div>
   <div class="blog-card-meta"><span>推理系统</span><time>2026-07-28</time></div>
   <h2>Paged KV Cache 解决的不是注意力计算，而是显存管理</h2>
   <p>从连续预留的碎片问题出发，解释 block table、物理块分配、引用计数和分页注意力之间的契约。</p>
   <div class="blog-tags"><span>PagedAttention</span><span>KV Cache</span><span>Memory Management</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="moe"><div class="section-heading"><div><h2>MoE</h2></div><p>3 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/moe-mla-from-model-to-serving.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型架构</span><div><div class="tech-node"><span>01</span><strong>MoE</strong></div><div class="tech-node"><span>02</span><strong>MLA</strong></div><div class="tech-node"><span>03</span><strong>Expert Parallelism</strong></div><div class="tech-node"><span>04</span><strong>Serving</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型架构</span><time>2026-07-31</time></div>
+  <h2>MoE 与 MLA：参数规模、激活成本和推理系统如何连起来</h2>
+  <p>从路由公式、专家并行、负载均衡和 KV 压缩解释 MoE/MLA，不只谈模型参数，还分析它们对通信、缓存、Kernel 与在线调度的真实影响。</p>
+  <div class="blog-tags"><span>MoE</span><span>MLA</span><span>Expert Parallelism</span><span>Serving</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a><a class="blog-card" href="posts/kimi-k3-architecture-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>Kimi K3</strong></div><div class="tech-node"><span>02</span><strong>KDA</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>Multimodal</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h2>
+  <p>基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</p>
+  <div class="blog-tags"><span>Kimi K3</span><span>KDA</span><span>MoE</span><span>Multimodal</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a><a class="blog-card" href="posts/deepseek-v4-flash-pro-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>DeepSeek V4</strong></div><div class="tech-node"><span>02</span><strong>Sparse Attention</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>mHC</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h2>
+  <p>基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</p>
+  <div class="blog-tags"><span>DeepSeek V4</span><span>Sparse Attention</span><span>MoE</span><span>mHC</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="multimodal"><div class="section-heading"><div><h2>Multimodal</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/kimi-k3-architecture-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>Kimi K3</strong></div><div class="tech-node"><span>02</span><strong>KDA</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>Multimodal</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>Kimi K3 架构拆解：KDA、Attention Residuals、896 专家与原生多模态</h2>
+  <p>基于 MoonshotAI 官方模型卡，拆解 Kimi K3 的 2.8T/104B 稀疏架构、KDA 与 Gated MLA 混合注意力、Stable LatentMoE、原生视觉和 MXFP4 QAT，并分析部署代价。</p>
+  <div class="blog-tags"><span>Kimi K3</span><span>KDA</span><span>MoE</span><span>Multimodal</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="muon"><div class="section-heading"><div><h2>Muon</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/deepseek-v4-flash-pro-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>DeepSeek V4</strong></div><div class="tech-node"><span>02</span><strong>Sparse Attention</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>mHC</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h2>
+  <p>基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</p>
+  <div class="blog-tags"><span>DeepSeek V4</span><span>Sparse Attention</span><span>MoE</span><span>mHC</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="nsight"><div class="section-heading"><div><h2>Nsight</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/first-custom-cuda-operator.html">
   <div class="blog-card-visual" aria-hidden="true"><span>CUDA OPERATOR</span><div><div class="tech-node"><span>01</span><strong>Reference</strong></div><div class="tech-node"><span>02</span><strong>Naive Kernel</strong></div><div class="tech-node"><span>03</span><strong>Tiled Kernel</strong></div><div class="tech-node"><span>04</span><strong>Profile</strong></div></div></div>
@@ -262,6 +360,20 @@
   <p>从请求进入服务到 token 流式返回，建立连接调度、KV Cache、Prefill、Decode 和采样的完整系统视图。</p>
   <div class="blog-tags"><span>LLM Inference</span><span>Scheduling</span><span>KV Cache</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="serving"><div class="section-heading"><div><h2>Serving</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/moe-mla-from-model-to-serving.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型架构</span><div><div class="tech-node"><span>01</span><strong>MoE</strong></div><div class="tech-node"><span>02</span><strong>MLA</strong></div><div class="tech-node"><span>03</span><strong>Expert Parallelism</strong></div><div class="tech-node"><span>04</span><strong>Serving</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型架构</span><time>2026-07-31</time></div>
+  <h2>MoE 与 MLA：参数规模、激活成本和推理系统如何连起来</h2>
+  <p>从路由公式、专家并行、负载均衡和 KV 压缩解释 MoE/MLA，不只谈模型参数，还分析它们对通信、缓存、Kernel 与在线调度的真实影响。</p>
+  <div class="blog-tags"><span>MoE</span><span>MLA</span><span>Expert Parallelism</span><span>Serving</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="sparse-attention"><div class="section-heading"><div><h2>Sparse Attention</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/deepseek-v4-flash-pro-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>DeepSeek V4</strong></div><div class="tech-node"><span>02</span><strong>Sparse Attention</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>mHC</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h2>
+  <p>基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</p>
+  <div class="blog-tags"><span>DeepSeek V4</span><span>Sparse Attention</span><span>MoE</span><span>mHC</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="speculative-decoding"><div class="section-heading"><div><h2>Speculative Decoding</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/speculative-decoding-contract.html">
   <div class="blog-card-visual" aria-hidden="true"><span>SPECULATIVE DECODING</span><div><div class="tech-node"><span>01</span><strong>Draft 提议</strong></div><div class="tech-node"><span>02</span><strong>Target 验证</strong></div><div class="tech-node"><span>03</span><strong>接受/拒绝</strong></div><div class="tech-node"><span>04</span><strong>KV 回滚</strong></div></div></div>
   <div class="blog-card-meta"><span>推理系统</span><time>2026-07-31</time></div>
@@ -283,12 +395,26 @@
   <p>用请求完成时间不同这一事实，解释连续批处理如何在每个解码步重新组织批次，并讨论吞吐与延迟边界。</p>
   <div class="blog-tags"><span>Continuous Batching</span><span>Scheduling</span><span>Throughput</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="transformer"><div class="section-heading"><div><h2>Transformer</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/transformer-from-attention-to-kv-cache.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>模型基础</span><div><div class="tech-node"><span>01</span><strong>Transformer</strong></div><div class="tech-node"><span>02</span><strong>Attention</strong></div><div class="tech-node"><span>03</span><strong>KV Cache</strong></div><div class="tech-node"><span>04</span><strong>LLM Foundation</strong></div></div></div>
+  <div class="blog-card-meta"><span>模型基础</span><time>2026-07-31</time></div>
+  <h2>Transformer 入门：从 Self-Attention 到 KV Cache 的一条主线</h2>
+  <p>不从模型名词表入手，而是沿着张量 shape、注意力计算、残差与归一化、训练并行和推理 KV Cache，建立可计算、可调试的 Transformer 核心认知。</p>
+  <div class="blog-tags"><span>Transformer</span><span>Attention</span><span>KV Cache</span><span>LLM Foundation</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="compressed-tensors"><div class="section-heading"><div><h2>compressed-tensors</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/qat-to-vllm-export-contract.html">
   <div class="blog-card-visual" aria-hidden="true"><span>QUANTIZATION DEPLOYMENT</span><div><div class="tech-node"><span>01</span><strong>Fake Quant</strong></div><div class="tech-node"><span>02</span><strong>Quant IR</strong></div><div class="tech-node"><span>03</span><strong>Weight Pack</strong></div><div class="tech-node"><span>04</span><strong>vLLM Kernel</strong></div></div></div>
   <div class="blog-card-meta"><span>低精度部署</span><time>2026-07-31</time></div>
   <h2>从 QAT 到 vLLM：量化模型真正可部署需要哪些契约</h2>
   <p>解释为什么训练阶段的 fake quant 和 QuantLinear 不能直接视为部署产物，并给出 Quant IR、标准格式 lowering、权重打包和真实 kernel 验收的完整链路。</p>
   <div class="blog-tags"><span>QAT</span><span>vLLM</span><span>compressed-tensors</span><span>Quant IR</span></div>
+  <strong class="blog-card-enter">阅读全文 →</strong>
+</a></div></section><section class="blog-facet-section" id="mhc"><div class="section-heading"><div><h2>mHC</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/deepseek-v4-flash-pro-analysis.html">
+  <div class="blog-card-visual" aria-hidden="true"><span>前沿模型</span><div><div class="tech-node"><span>01</span><strong>DeepSeek V4</strong></div><div class="tech-node"><span>02</span><strong>Sparse Attention</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>mHC</strong></div></div></div>
+  <div class="blog-card-meta"><span>前沿模型</span><time>2026-07-31</time></div>
+  <h2>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h2>
+  <p>基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</p>
+  <div class="blog-tags"><span>DeepSeek V4</span><span>Sparse Attention</span><span>MoE</span><span>mHC</span></div>
   <strong class="blog-card-enter">阅读全文 →</strong>
 </a></div></section><section class="blog-facet-section" id="mini-infer"><div class="section-heading"><div><h2>mini-infer</h2></div><p>1 篇</p></div><div class="blog-grid"><a class="blog-card" href="posts/mini-infer-architecture.html">
   <div class="blog-card-visual" aria-hidden="true"><span>ENGINE ARCHITECTURE</span><div><div class="tech-node"><span>01</span><strong>Request State</strong></div><div class="tech-node"><span>02</span><strong>Scheduler</strong></div><div class="tech-node"><span>03</span><strong>KV Manager</strong></div><div class="tech-node"><span>04</span><strong>Model Runner</strong></div></div></div>

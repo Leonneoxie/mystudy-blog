@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="430" viewBox="0 0 1040 430">
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.box{fill:#fff;stroke:#334155;stroke-width:2;rx:8}.past{fill:#dcfce7;stroke:#16a34a;stroke-width:1}.future{fill:#fee2e2;stroke:#dc2626;stroke-width:1}.diag{fill:#dbeafe;stroke:#2563eb;stroke-width:1}
+      .text{font:16px Arial,sans-serif;fill:#0f172a}.muted{font:13px Arial,sans-serif;fill:#475569}.title{font:24px Arial,sans-serif;fill:#0f172a}
+    </style>
+  </defs>
+  <rect class="bg" width="1040" height="430"/>
+  <text class="title" x="36" y="42">Causal Attention Mask: decoder 只能看过去，不能看未来</text>
+  <rect class="box" x="90" y="90" width="380" height="280"/>
+  <text class="text" x="190" y="122">Attention Score Matrix</text>
+  <g transform="translate(155 150)">
+    <rect class="diag" x="0" y="0" width="38" height="38"/><rect class="future" x="38" y="0" width="38" height="38"/><rect class="future" x="76" y="0" width="38" height="38"/><rect class="future" x="114" y="0" width="38" height="38"/><rect class="future" x="152" y="0" width="38" height="38"/>
+    <rect class="past" x="0" y="38" width="38" height="38"/><rect class="diag" x="38" y="38" width="38" height="38"/><rect class="future" x="76" y="38" width="38" height="38"/><rect class="future" x="114" y="38" width="38" height="38"/><rect class="future" x="152" y="38" width="38" height="38"/>
+    <rect class="past" x="0" y="76" width="38" height="38"/><rect class="past" x="38" y="76" width="38" height="38"/><rect class="diag" x="76" y="76" width="38" height="38"/><rect class="future" x="114" y="76" width="38" height="38"/><rect class="future" x="152" y="76" width="38" height="38"/>
+    <rect class="past" x="0" y="114" width="38" height="38"/><rect class="past" x="38" y="114" width="38" height="38"/><rect class="past" x="76" y="114" width="38" height="38"/><rect class="diag" x="114" y="114" width="38" height="38"/><rect class="future" x="152" y="114" width="38" height="38"/>
+    <rect class="past" x="0" y="152" width="38" height="38"/><rect class="past" x="38" y="152" width="38" height="38"/><rect class="past" x="76" y="152" width="38" height="38"/><rect class="past" x="114" y="152" width="38" height="38"/><rect class="diag" x="152" y="152" width="38" height="38"/>
+  </g>
+  <rect class="past" x="560" y="125" width="34" height="24"/><text class="text" x="610" y="144">允许看：过去 token</text>
+  <rect class="diag" x="560" y="170" width="34" height="24"/><text class="text" x="610" y="189">允许看：当前 token</text>
+  <rect class="future" x="560" y="215" width="34" height="24"/><text class="text" x="610" y="234">禁止看：未来 token</text>
+  <text class="muted" x="560" y="295">Prefill 阶段一次构造整张 causal mask。</text>
+  <text class="muted" x="560" y="320">Decode 阶段每次只新增一行，并读取历史 KV cache。</text>
+</svg>

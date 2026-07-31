@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="620" viewBox="0 0 1180 620">
+  <defs>
+    <style>
+      .bg{fill:#fbfaf7}.title{font:700 30px Arial, sans-serif;fill:#111827}.sub{font:15px Arial, sans-serif;fill:#475569}
+      .box{fill:#fff;stroke:#263445;stroke-width:2;rx:8}.a{fill:#eef7ff}.b{fill:#ecfdf5}.c{fill:#fff7ed}.d{fill:#fdf2f8}
+      .h{font:700 18px Arial, sans-serif;fill:#111827}.t{font:14px Arial, sans-serif;fill:#334155}.s{font:12px Arial, sans-serif;fill:#475569}
+      .arr{stroke:#334155;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="1180" height="620"/>
+  <text x="42" y="55" class="title">视觉大模型与多模态大模型入门地图</text>
+  <text x="42" y="85" class="sub">从图像表示开始，连接 ViT / CLIP / Diffusion / SAM / MLLM 的共同主线。</text>
+
+  <rect x="55" y="135" width="250" height="340" class="box a"/>
+  <text x="82" y="170" class="h">视觉基础</text>
+  <text x="82" y="210" class="t">像素 / 通道 / 分辨率</text>
+  <text x="82" y="240" class="t">分类 / 检测 / 分割</text>
+  <text x="82" y="270" class="t">CNN / ViT / patch token</text>
+  <text x="82" y="300" class="t">特征、embedding、预训练</text>
+  <text x="82" y="410" class="s">先知道图像如何变成 token</text>
+
+  <rect x="335" y="135" width="250" height="340" class="box b"/>
+  <text x="362" y="170" class="h">视觉-语言对齐</text>
+  <text x="362" y="210" class="t">CLIP contrastive learning</text>
+  <text x="362" y="240" class="t">image-text embedding</text>
+  <text x="362" y="270" class="t">zero-shot classification</text>
+  <text x="362" y="300" class="t">VQA / caption / retrieval</text>
+  <text x="362" y="410" class="s">让图像和文字进入同一语义空间</text>
+
+  <rect x="615" y="135" width="250" height="340" class="box c"/>
+  <text x="642" y="170" class="h">生成式视觉模型</text>
+  <text x="642" y="210" class="t">DDPM / score / denoise</text>
+  <text x="642" y="240" class="t">Latent Diffusion / VAE</text>
+  <text x="642" y="270" class="t">U-Net / cross-attention</text>
+  <text x="642" y="300" class="t">Stable Diffusion / ControlNet</text>
+  <text x="642" y="410" class="s">从噪声逐步生成图像</text>
+
+  <rect x="895" y="135" width="230" height="340" class="box d"/>
+  <text x="922" y="170" class="h">多模态大模型</text>
+  <text x="922" y="210" class="t">Vision encoder + projector</text>
+  <text x="922" y="240" class="t">LLM / instruction tuning</text>
+  <text x="922" y="270" class="t">SAM / grounding / OCR</text>
+  <text x="922" y="300" class="t">评测 / 安全 / 部署</text>
+  <text x="922" y="410" class="s">把视觉理解接入语言推理</text>
+
+  <path d="M305 305 H335" class="arr"/>
+  <path d="M585 305 H615" class="arr"/>
+  <path d="M865 305 H895" class="arr"/>
+  <rect x="150" y="530" width="880" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+  <text x="178" y="558" class="t">学习路线：图像表示 -> 视觉编码器 -> 图文对齐 -> 图像生成 -> 多模态推理与应用。</text>
+</svg>

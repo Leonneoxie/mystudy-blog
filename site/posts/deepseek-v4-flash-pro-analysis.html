@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。">
+  <title>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/deepseek-v4-flash-pro-analysis.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍">
+  <meta property="og:description" content="基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/deepseek-v4-flash-pro-analysis.html">
+  <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍">
+  <meta name="twitter:description" content="基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。">
+  <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="DeepSeek V4">
+  <meta property="article:tag" content="Sparse Attention">
+  <meta property="article:tag" content="MoE">
+  <meta property="article:tag" content="mHC">
+  <meta property="article:tag" content="Muon">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍", "description": "基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/deepseek-v4-flash-pro-analysis.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["DeepSeek V4", "Sparse Attention", "MoE", "mHC", "Muon"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">前沿模型</p><h1>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h1><p class="blog-summary">基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</p><div class="blog-byline"><time>2026-07-31</time><span>约 5 分钟</span><span>进阶</span></div><div class="blog-tags"><span>DeepSeek V4</span><span>Sparse Attention</span><span>MoE</span><span>mHC</span><span>Muon</span></div></header>
+  <section class="article-visual" aria-label="文章技术图解">
+  <div class="article-visual-head"><div><span>前沿模型</span><h2>DeepSeek V4 Flash 与 Pro：百万上下文架构、mHC、Muon 和部署取舍</h2></div><strong>TECH MAP</strong></div>
+  <div class="tech-flow"><div class="tech-node"><span>01</span><strong>DeepSeek V4</strong></div><div class="tech-node"><span>02</span><strong>Sparse Attention</strong></div><div class="tech-node"><span>03</span><strong>MoE</strong></div><div class="tech-node"><span>04</span><strong>mHC</strong></div></div>
+  <ul class="visual-takeaways"><li>基于 DeepSeek 官方模型卡与技术报告，解释 V4 的 CSA+HCA 混合注意力、mHC 残差、Muon 优化器、两阶段后训练，以及 Flash/Pro 在容量、激活参数和部署成本上的差异。</li></ul>
+</section>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">先给结论</h2>
+<p>DeepSeek V4 的主线是“百万上下文下仍然可计算、可缓存、可训练”：CSA+HCA 混合注意力压缩长上下文成本，mHC 改造层间残差通路，Muon 改善大规模训练收敛，再用领域专家培养与 on-policy distillation 合并能力。</p>
+<p>DeepSeek 同时发布 Flash 与 Pro，是两种容量/成本点，而不是简单的“快版”和“高分版”。</p>
+<h2 id="section-2-1-flash-pro">1. Flash 与 Pro 的官方规格</h2>
+<table><tr><th>模型</th><th>总参数</th><th>激活参数</th><th>上下文</th><th>发布精度</th><th>适合讨论的目标</th></tr><tr><td>V4-Flash</td><td>284B</td><td>13B</td><td>1M</td><td>FP4 expert + FP8 其他参数</td><td>成本、吞吐、较易部署</td></tr><tr><td>V4-Pro</td><td>1.6T</td><td>49B</td><td>1M</td><td>FP4 expert + FP8 其他参数</td><td>容量、复杂推理、agentic 能力</td></tr></table>
+<p>两者都有 Base 的 FP8 Mixed 版本和后训练版本。模型卡将当前发布称为 preview，结论必须带版本日期。</p>
+<figure class="course-figure figure-comparison" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：模型演进时间线：从 Transformer、MoE、长上下文到推理系统"><img src="../assets/model-evolution-timeline.svg" alt="模型演进时间线：从 Transformer、MoE、长上下文到推理系统"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>模型演进时间线：从 Transformer、MoE、长上下文到推理系统</span><em>对比 / 矩阵</em></figcaption></figure>
+<h2 id="section-3-2-csa-hca">2. CSA + HCA 混合注意力</h2>
+<p>V4 将 Compressed Sparse Attention 与 Heavily Compressed Attention 组合。核心不是“稀疏”三个字，而是回答两类问题：哪些历史位置值得精确读取，以及其余历史如何以高度压缩状态保留。</p>
+<p>官方报告称，在 1M context 下，V4-Pro 的单 token 推理 FLOPs 为 V3.2 的 27%，KV Cache 为 10%。这是相对于指定 baseline 和场景的官方结果，不应外推成所有长度、硬件和 batch 下都等比例加速。</p>
+<p>实践时应检查：稀疏索引如何生成、压缩状态是否可增量更新、边界位置与 causal mask 是否正确、runtime 是否有对应 sparse/compact kernel，以及短上下文下额外开销是否反而占主导。</p>
+<h2 id="section-4-3-mhc">3. mHC 改变的是层间信息高速路</h2>
+<p>Manifold-Constrained Hyper-Connections 扩展传统 residual connection，同时用约束保持信号传播稳定。它与 Kimi K3 的 Attention Residuals 都说明前沿模型开始重新设计“层与层怎样通信”，但两者不能因为目标相似就视为同一算法。</p>
+<p>一个合格实验要比较：相同参数预算下的训练 loss、梯度/激活尺度、深层稳定性、额外计算和推理内存，而不是只实现公式形状。</p>
+<h2 id="section-5-4-muon">4. Muon 优化器为何进入模型创新清单</h2>
+<p>Muon 对矩阵参数更新进行结构化处理，目标是提高收敛效率与稳定性。V4 官方将其列为核心升级，说明优化器已经成为规模化训练系统的一部分。</p>
+<p>课程中可在小 Transformer 上对比 AdamW 与 Muon：固定 token budget、数据、初始化和学习率搜索预算，报告 train loss、validation loss、吞吐、优化器状态显存和数值异常。若只用一套 AdamW 学习率直接套 Muon，比较并不公平。</p>
+<h2 id="section-6-5">5. 两阶段后训练</h2>
+<p>官方描述的流程是：先通过 SFT 与 GRPO 独立培养领域专家，再用 on-policy distillation 把不同能力整合进统一模型。这不同于推理时 MoE router 选择专家；这里的“domain-specific experts”还包含训练组织与能力来源的含义。</p>
+<p>验证后训练收益需要拆开 base、SFT/RL 专家、统一蒸馏模型，并固定评测 harness。Max reasoning mode 使用更大思考预算，比较时必须同时报告 token 消耗和时延。</p>
+<h2 id="section-7-6-fp4-expert-fp8">6. FP4 Expert + FP8 其他参数</h2>
+<p>V4 后训练权重采用混合格式：MoE expert 参数 FP4，多数其他参数 FP8。它反映敏感度与容量分布：专家权重占比巨大，FP4 可显著减小存储和带宽；Attention、router、Norm 等路径可能需要更高精度。</p>
+<p>部署验收至少检查 checkpoint metadata、block scale、packing、expert kernel、通信 buffer 精度和是否静默反量化。Flash 模型激活参数少，并不意味着单卡可轻松装下全部 284B 权重。</p>
+<h2 id="section-8-7-serving">7. 从架构到 Serving 的检查表</h2>
+<figure class="course-figure figure-concept" data-figure-number="2"><button class="figure-zoom" type="button" aria-label="放大图示：LLM Serving 部署栈：格式、调度、缓存、Kernel 与硬件"><img src="../assets/deployment-stack.svg" alt="LLM Serving 部署栈：格式、调度、缓存、Kernel 与硬件"><span aria-hidden="true">放大</span></button><figcaption><b>图 2</b><span>LLM Serving 部署栈：格式、调度、缓存、Kernel 与硬件</span><em>概念图</em></figcaption></figure>
+<table><tr><th>层级</th><th>V4 需要回答的问题</th></tr><tr><td>Loader</td><td>是否识别 deepseek_v4 config 与混合 FP4/FP8</td></tr><tr><td>Attention</td><td>CSA/HCA kernel 是否真实启用</td></tr><tr><td>KV/状态</td><td>10% 缓存口径如何落到实际 bytes/token</td></tr><tr><td>MoE</td><td>expert placement、dispatch、All-to-All 是否高效</td></tr><tr><td>Scheduler</td><td>1M prefill 是否 chunked，如何保护 decode SLO</td></tr><tr><td>Parallelism</td><td>TP/EP/PP 如何组合，通信拓扑是否匹配</td></tr><tr><td>Benchmark</td><td>Flash/Pro 是否使用同一 workload 与 reasoning budget</td></tr></table>
+<h2 id="section-9-8-flash-pro">8. Flash 还是 Pro</h2>
+<p>选型不能只看榜单。Flash 更适合预算敏感、吞吐优先和验证 V4 runtime 支持；Pro 面向更高知识容量和复杂 agentic 任务，但权重、通信和集群要求显著更高。应先在 API 或官方部署上验证任务收益，再决定是否承担私有化部署成本。</p>
+<h2 id="section-10-9">9. 可落地的课程实验</h2>
+<ol><li>实现 causal block-sparse attention，与 dense oracle 对拍；</li><li>记录不同稀疏率/长度下 FLOPs、状态字节和误差；</li><li>在小模型对比普通 residual 与受约束 hyper-connection；</li><li>对 AdamW/Muon 做等 token budget 实验；</li><li>构造 MoE FP4、非专家 FP8 的混合量化 IR；</li><li>用 V4-Flash 配置做静态显存与通信预算，不在 6GB GPU 上声称完成模型实跑。</li></ol>
+<h2 id="section-11">证据边界</h2>
+<p>本文的规格和架构来自 DeepSeek 官方 Hugging Face 模型卡与技术报告。官方 benchmark 仍是发布方结果；MyStudy 当前设备不具备本地加载 284B/1.6T 权重的条件，因此课程实践聚焦缩小复现、格式检查和系统预算，不伪装成 V4 全模型实测。</p>
+<h2 id="section-12">参考资料</h2>
+<ul><li><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash">DeepSeek-V4-Flash 官方模型卡</a></li><li><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro">DeepSeek-V4-Pro 官方模型卡</a></li><li><a href="https://arxiv.org/abs/2606.19348">DeepSeek-V4 Technical Report</a></li><li><a href="https://github.com/deepseek-ai/DeepEP">DeepEP 官方仓库</a></li></ul>
+<p>资料核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先给结论</a><a class="toc-level-2" href="#section-2-1-flash-pro">1. Flash 与 Pro 的官方规格</a><a class="toc-level-2" href="#section-3-2-csa-hca">2. CSA + HCA 混合注意力</a><a class="toc-level-2" href="#section-4-3-mhc">3. mHC 改变的是层间信息高速路</a><a class="toc-level-2" href="#section-5-4-muon">4. Muon 优化器为何进入模型创新清单</a><a class="toc-level-2" href="#section-6-5">5. 两阶段后训练</a><a class="toc-level-2" href="#section-7-6-fp4-expert-fp8">6. FP4 Expert + FP8 其他参数</a><a class="toc-level-2" href="#section-8-7-serving">7. 从架构到 Serving 的检查表</a><a class="toc-level-2" href="#section-9-8-flash-pro">8. Flash 还是 Pro</a><a class="toc-level-2" href="#section-10-9">9. 可落地的课程实验</a><a class="toc-level-2" href="#section-11">证据边界</a><a class="toc-level-2" href="#section-12">参考资料</a></div></aside></div>
+  <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/learning-plans/knowledge-map/llm-accel" target="_blank" rel="noopener">查看本文源码</a></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="cuda-gemm-optimization-ladder.html"><span>上一篇</span><strong>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈</strong></a><a href="first-custom-cuda-operator.html"><span>下一篇</span><strong>第一个自定义 CUDA 算子：从能运行到可交付</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>
+</body>
+</html>

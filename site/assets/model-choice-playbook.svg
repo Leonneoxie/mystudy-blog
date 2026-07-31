@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="520" viewBox="0 0 1180 520">
+  <rect width="1180" height="520" fill="#fbfcff"/>
+  <text x="48" y="58" font-family="Arial, sans-serif" font-size="29" font-weight="700" fill="#172033">模型选型判断：结构创新如何落到工程收益</text>
+  <g font-family="Arial, sans-serif" font-size="16">
+    <rect x="70" y="118" width="220" height="100" rx="12" fill="#ffffff" stroke="#ced7e6" stroke-width="2"/>
+    <text x="104" y="154" font-size="20" font-weight="700">能力目标</text>
+    <text x="104" y="184">数学 / 代码 / 多语言</text>
+    <text x="104" y="206">工具 / 长上下文 / 安全</text>
+    <line x1="290" y1="168" x2="390" y2="168" stroke="#536478" stroke-width="3" marker-end="url(#arrow)"/>
+    <rect x="390" y="118" width="220" height="100" rx="12" fill="#ffffff" stroke="#ced7e6" stroke-width="2"/>
+    <text x="424" y="154" font-size="20" font-weight="700">结构成本</text>
+    <text x="424" y="184">dense / MoE / GQA / MLA</text>
+    <text x="424" y="206">KV cache / active params</text>
+    <line x1="610" y1="168" x2="710" y2="168" stroke="#536478" stroke-width="3" marker-end="url(#arrow)"/>
+    <rect x="710" y="118" width="220" height="100" rx="12" fill="#ffffff" stroke="#ced7e6" stroke-width="2"/>
+    <text x="744" y="154" font-size="20" font-weight="700">服务约束</text>
+    <text x="744" y="184">TTFT / TPOT / p99</text>
+    <text x="744" y="206">并发 / 显存 / 成本</text>
+    <line x1="930" y1="168" x2="1030" y2="168" stroke="#536478" stroke-width="3" marker-end="url(#arrow)"/>
+    <rect x="1030" y="118" width="110" height="100" rx="12" fill="#ffffff" stroke="#ced7e6" stroke-width="2"/>
+    <text x="1050" y="158" font-size="20" font-weight="700">选择</text>
+    <text x="1050" y="190">模型 + runtime</text>
+
+    <rect x="98" y="292" width="280" height="110" rx="12" fill="#fff6dd" stroke="#e3bf5f"/>
+    <text x="126" y="330" font-size="20" font-weight="700">LLaMA 类</text>
+    <text x="126" y="362">稳定 dense baseline，适合迁移、量化、微调</text>
+
+    <rect x="450" y="292" width="280" height="110" rx="12" fill="#fff0ed" stroke="#e7a092"/>
+    <text x="478" y="330" font-size="20" font-weight="700">DeepSeek 类</text>
+    <text x="478" y="362">追求高能力/低激活成本，需强 serving 能力</text>
+
+    <rect x="802" y="292" width="280" height="110" rx="12" fill="#eaf6ff" stroke="#80bee5"/>
+    <text x="830" y="330" font-size="20" font-weight="700">Qwen3 类</text>
+    <text x="830" y="362">多规格、可控 reasoning，适合产品化组合</text>
+  </g>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#536478"/>
+    </marker>
+  </defs>
+</svg>
