@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720">
+
+<defs>
+  <style>
+    .title{font:700 28px Arial, "Microsoft YaHei", sans-serif; fill:#172033}
+    .sub{font:600 16px Arial, "Microsoft YaHei", sans-serif; fill:#34415c}
+    .txt{font:14px Arial, "Microsoft YaHei", sans-serif; fill:#243047}
+    .small{font:12px Arial, "Microsoft YaHei", sans-serif; fill:#4b5875}
+    .box{rx:8; ry:8; fill:#ffffff; stroke:#9fb2d6; stroke-width:1.4}
+    .box2{rx:8; ry:8; fill:#f7fbff; stroke:#9bd1c6; stroke-width:1.4}
+    .warn{rx:8; ry:8; fill:#fff8ed; stroke:#f0b66d; stroke-width:1.4}
+    .line{stroke:#6b7a99; stroke-width:2; fill:none; marker-end:url(#arrow)}
+  </style>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7a99"/>
+  </marker>
+</defs>
+
+<rect width="1240" height="720" fill="#fbfcff"/>
+<text class="title" x="48" y="58">内存层次与访存合并</text>
+<text class="txt" x="48" y="88">多数 kernel 慢不是因为不会算，而是因为数据搬得太慢、太散、太重复。</text>
+<rect class="box" x="90" y="150" width="230" height="140"/><text class="sub" x="122" y="188">Global / HBM</text><text class="txt" x="122" y="226">容量大</text><text class="txt" x="122" y="252">延迟高</text><text class="txt" x="122" y="278">需要 coalescing</text>
+<rect class="box2" x="390" y="150" width="230" height="140"/><text class="sub" x="422" y="188">Shared / SRAM</text><text class="txt" x="422" y="226">block 内共享</text><text class="txt" x="422" y="252">低延迟</text><text class="txt" x="422" y="278">注意 bank conflict</text>
+<rect class="warn" x="690" y="150" width="230" height="140"/><text class="sub" x="722" y="188">Registers</text><text class="txt" x="722" y="226">每线程私有</text><text class="txt" x="722" y="252">最快</text><text class="txt" x="722" y="278">太多会降 occupancy</text>
+<rect class="box" x="180" y="420" width="860" height="120"/><text class="sub" x="214" y="458">访存合并直觉</text><text class="txt" x="214" y="496">同一个 warp 的线程连续访问相邻地址，硬件能合并成更少内存事务；跨步访问会浪费带宽。</text>
+</svg>

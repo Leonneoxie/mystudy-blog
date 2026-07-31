@@ -3,27 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。">
-  <title>第一个自定义 CUDA 算子应该验证什么 - MyStudy 技术博客</title>
+  <meta name="description" content="以向量加法为最小闭环，完整走过执行映射、PyTorch 扩展、正确性矩阵、CUDA Event 基准测试与 Nsight 诊断，并解释 baseline 到融合优化的演进依据。">
+  <title>第一个自定义 CUDA 算子：从能运行到可交付 - MyStudy 技术博客</title>
   <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html">
   <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="MyStudy 技术博客">
-  <meta property="og:title" content="第一个自定义 CUDA 算子应该验证什么">
-  <meta property="og:description" content="以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。">
+  <meta property="og:title" content="第一个自定义 CUDA 算子：从能运行到可交付">
+  <meta property="og:description" content="以向量加法为最小闭环，完整走过执行映射、PyTorch 扩展、正确性矩阵、CUDA Event 基准测试与 Nsight 诊断，并解释 baseline 到融合优化的演进依据。">
   <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html">
   <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
   <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="第一个自定义 CUDA 算子应该验证什么">
-  <meta name="twitter:description" content="以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。">
+  <meta name="twitter:title" content="第一个自定义 CUDA 算子：从能运行到可交付">
+  <meta name="twitter:description" content="以向量加法为最小闭环，完整走过执行映射、PyTorch 扩展、正确性矩阵、CUDA Event 基准测试与 Nsight 诊断，并解释 baseline 到融合优化的演进依据。">
   <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
   <meta property="article:published_time" content="2026-07-31">
   <meta property="article:modified_time" content="2026-07-31">
   <meta property="article:tag" content="CUDA">
   <meta property="article:tag" content="PyTorch Extension">
   <meta property="article:tag" content="Kernel Validation">
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "第一个自定义 CUDA 算子应该验证什么", "description": "以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["CUDA", "PyTorch Extension", "Kernel Validation"]}</script>
+  <meta property="article:tag" content="Nsight">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "第一个自定义 CUDA 算子：从能运行到可交付", "description": "以向量加法为最小闭环，完整走过执行映射、PyTorch 扩展、正确性矩阵、CUDA Event 基准测试与 Nsight 诊断，并解释 baseline 到融合优化的演进依据。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["CUDA", "PyTorch Extension", "Kernel Validation", "Nsight"]}</script>
   <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
   <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
   <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
@@ -44,17 +45,26 @@
   </header>
   <main class="blog-main">
 <article class="blog-article">
-  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>第一个自定义 CUDA 算子应该验证什么</h1><p class="blog-summary">以向量加法为最小例子，建立从 grid-stride loop、PyTorch 扩展到正确性和性能验收的算子学习闭环。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>入门到进阶</span></div><div class="blog-tags"><span>CUDA</span><span>PyTorch Extension</span><span>Kernel Validation</span></div></header>
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>第一个自定义 CUDA 算子：从能运行到可交付</h1><p class="blog-summary">以向量加法为最小闭环，完整走过执行映射、PyTorch 扩展、正确性矩阵、CUDA Event 基准测试与 Nsight 诊断，并解释 baseline 到融合优化的演进依据。</p><div class="blog-byline"><time>2026-07-31</time><span>约 8 分钟</span><span>入门到进阶</span></div><div class="blog-tags"><span>CUDA</span><span>PyTorch Extension</span><span>Kernel Validation</span><span>Nsight</span></div></header>
   <section class="article-visual" aria-label="文章技术图解">
   <div class="article-visual-head"><div><span>CUDA OPERATOR</span><h2>自定义算子从正确性走向性能</h2></div><strong>TECH MAP</strong></div>
   <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Reference</strong></div><div class="tech-node"><span>02</span><strong>Naive Kernel</strong></div><div class="tech-node"><span>03</span><strong>Tiled Kernel</strong></div><div class="tech-node"><span>04</span><strong>Profile</strong></div></div>
   <ul class="visual-takeaways"><li>先对拍再优化</li><li>观察访存与占用率</li><li>保留 baseline 版本</li></ul>
 </section>
-  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">问题背景</h2>
-<p>第一个 CUDA kernel 很容易停在“能编译、能输出”。但自定义算子的目标不是换一种语法实现加法，而是建立接口、并行映射、正确性和性能证据的完整链路。</p>
-<h2 id="section-2">一句话结论</h2>
-<p>一个合格的最小算子至少要回答：线程负责哪些元素、任意 shape 是否正确、dtype/device/contiguous 如何约束、错误如何暴露，以及它在什么规模下比框架基线有意义。</p>
-<h2 id="section-3-kernel">最小 kernel</h2>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1-kernel-20">先说结论：kernel 能输出，只完成了 20%</h2>
+<p>第一个 CUDA kernel 往往只有十几行，但真正困难的不是 <code>__global__</code> 语法。一个可以进入模型或算子库的实现，至少要同时回答五个问题：</p>
+<ol><li><strong>数学契约</strong>：计算结果是什么，允许多大误差？</li><li><strong>接口契约</strong>：支持哪些 shape、dtype、device、layout 和 stream？</li><li><strong>执行映射</strong>：元素如何映射到线程，访存是否连续，边界是否安全？</li><li><strong>性能证据</strong>：和谁比较，如何计时，瓶颈来自计算、带宽还是启动开销？</li><li><strong>可复现证据</strong>：源码、环境、命令和原始结果能否让别人重跑？</li></ol>
+<p>本文用向量加法建立这套闭环。它不是为了重新发明 <code>torch.add</code>，而是因为它几乎没有数学噪声：一旦结果或性能异常，问题通常就在线程映射、接口包装、计时方法或访存模式里。</p>
+<figure class="course-figure figure-flow" data-figure-number="1"><button class="figure-zoom" type="button" aria-label="放大图示：CUDA 算子 benchmark 验证闭环：参考实现、正确性、计时、分析与回归"><img src="../assets/operator-validation-loop.svg" alt="CUDA 算子 benchmark 验证闭环：参考实现、正确性、计时、分析与回归"><span aria-hidden="true">放大</span></button><figcaption><b>图 1</b><span>CUDA 算子 benchmark 验证闭环：参考实现、正确性、计时、分析与回归</span><em>流程 / 闭环</em></figcaption></figure>
+<h2 id="section-2-1-kernel">1. 先写契约，再写 kernel</h2>
+<p>设 <code>x</code>、<code>y</code> 为长度相同的一维 CUDA tensor：</p>
+<p>$$out_i = x_i + y_i,\quad 0 \le i &lt; n$$</p>
+<p>第一版刻意收紧边界：只支持 CUDA、FP32、连续内存、相同 shape，不做广播。没有实现的能力应明确拒绝，不能让它在部分输入上“碰巧能跑”。</p>
+<table><tr><th>维度</th><th>V1 教学实现的约定</th><th>不满足时</th></tr><tr><td>device</td><td>同一块 CUDA GPU</td><td>明确报错</td></tr><tr><td>dtype</td><td>FP32</td><td>明确报错</td></tr><tr><td>shape</td><td>完全相同，不广播</td><td>明确报错</td></tr><tr><td>layout</td><td>contiguous</td><td>拒绝或由包装层显式转换</td></tr><tr><td>stream</td><td>PyTorch 当前 CUDA stream</td><td>异步执行，不擅自同步</td></tr></table>
+<h2 id="section-3-2-grid-stride-loop">2. 从线程层级理解 grid-stride loop</h2>
+<p>CUDA 的执行结构是 <code>Grid → Block → Thread</code>。线程不会自动知道自己负责哪个元素，索引映射必须由 kernel 明确给出。</p>
+<figure class="course-figure figure-concept" data-figure-number="2"><button class="figure-zoom" type="button" aria-label="放大图示：CUDA 执行层级图：Grid、Block、Warp 与 Thread 的关系"><img src="../assets/cuda-execution-hierarchy.svg" alt="CUDA 执行层级图：Grid、Block、Warp 与 Thread 的关系"><span aria-hidden="true">放大</span></button><figcaption><b>图 2</b><span>CUDA 执行层级图：Grid、Block、Warp 与 Thread 的关系</span><em>概念图</em></figcaption></figure>
+<p>下面的 grid-stride loop 可以覆盖任意长度：</p>
 <pre><code class="language-cpp">__global__ void add_kernel(
     const float* x, const float* y, float* out, int64_t n) {
   for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -63,26 +73,87 @@
     out[i] = x[i] + y[i];
   }
 }</code></pre>
-<p>Grid-stride loop 让同一个 kernel 覆盖任意长度，并允许网格大小与数据长度解耦。包装层还需检查张量位于 CUDA、dtype 一致、元素数量一致，并使用当前 CUDA stream，而不是偷偷同步默认流。</p>
-<h2 id="section-4-shape">正确性不是只测一个 shape</h2>
-<p>推荐测试集合：</p>
+<p>第一次循环中，全局线程编号是 <code>blockIdx.x * blockDim.x + threadIdx.x</code>；数据更长时，线程以整个网格的线程总数继续前进。这样 <code>n</code> 不必是 block size 的整数倍，网格大小也能与数据规模解耦。索引使用 <code>int64_t</code>，避免大 tensor 在 32 位索引上溢出。</p>
+<h2 id="section-4-3">3. 合并访存决定带宽利用率</h2>
+<p>向量加法每个 FP32 元素只做一次加法，却至少读取 <code>x/y</code> 并写回 <code>out</code>，即约 <code>12 B/element</code>。算术强度约为 <code>1 FLOP / 12 B</code>，所以它通常受显存带宽限制，而不是计算限制。</p>
+<figure class="course-figure figure-concept" data-figure-number="3"><button class="figure-zoom" type="button" aria-label="放大图示：CUDA 合并访存图：连续线程访问连续地址与跨步访问的差异"><img src="../assets/cuda-memory-coalescing.svg" alt="CUDA 合并访存图：连续线程访问连续地址与跨步访问的差异"><span aria-hidden="true">放大</span></button><figcaption><b>图 3</b><span>CUDA 合并访存图：连续线程访问连续地址与跨步访问的差异</span><em>概念图</em></figcaption></figure>
+<p>相邻线程访问相邻地址，硬件才容易把一个 warp 的请求合并成较少的内存事务。这也解释了为什么非连续切片不能随意传入：代码按扁平连续数组解释输入，stride 语义已经丢失。包装层可以调用 <code>contiguous()</code>，但复制成本必须计入端到端 benchmark。</p>
+<h2 id="section-5-4-pytorch">4. PyTorch 包装层不是胶水代码</h2>
+<p>实际扩展还需要输入检查、设备保护、输出分配和 kernel launch：</p>
+<pre><code class="language-cpp">torch::Tensor add_cuda(torch::Tensor x, torch::Tensor y) {
+  TORCH_CHECK(x.is_cuda() &amp;&amp; y.is_cuda(), &quot;inputs must be CUDA tensors&quot;);
+  TORCH_CHECK(x.scalar_type() == torch::kFloat32, &quot;only FP32 is supported&quot;);
+  TORCH_CHECK(y.scalar_type() == x.scalar_type(), &quot;dtype mismatch&quot;);
+  TORCH_CHECK(x.sizes() == y.sizes(), &quot;shape mismatch&quot;);
+  TORCH_CHECK(x.is_contiguous() &amp;&amp; y.is_contiguous(), &quot;contiguous required&quot;);
+
+  at::cuda::CUDAGuard guard(x.device());
+  auto out = torch::empty_like(x);
+  const int64_t n = x.numel();
+  if (n == 0) return out;
+
+  constexpr int threads = 256;
+  const int blocks = static_cast&lt;int&gt;(
+      std::min&lt;int64_t&gt;((n + threads - 1) / threads, 4096));
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+  add_kernel&lt;&lt;&lt;blocks, threads, 0, stream&gt;&gt;&gt;(
+      x.data_ptr&lt;float&gt;(), y.data_ptr&lt;float&gt;(), out.data_ptr&lt;float&gt;(), n);
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  return out;
+}</code></pre>
+<p>这里的工程要点是：<code>CUDAGuard</code> 保证多 GPU 时使用输入所在设备；当前 stream 保持 PyTorch 的异步语义；空 tensor 不发射 kernel；launch check 尽早暴露配置错误。算子内部不应调用 <code>cudaDeviceSynchronize()</code>，否则会破坏并发并掩盖 stream 问题。</p>
+<h2 id="section-6-5-allclose">5. 正确性：不只跑一次 allclose</h2>
+<p>最小 shape 矩阵应包含：</p>
 <ul><li><code>n=0、1、31、32、33</code> 等边界；</li><li>非 block size 整数倍；</li><li>大张量；</li><li>不同 dtype（如果声明支持）；</li><li>非连续张量：明确拒绝或正确处理；</li><li>多 stream 场景；</li><li>与 <code>torch.add</code> 的容差对拍。</li></ul>
-<h2 id="section-5">性能验证</h2>
-<p>向量加法通常受显存带宽限制。计时必须预热、使用 CUDA event、同步正确边界，并报告数据规模。小张量可能被 Python 和 launch overhead 主导，自定义 kernel 比 PyTorch 慢并不意外。</p>
-<pre><code class="language-python">start.record()
-for _ in range(iters):
-    out = custom_add(x, y)
-end.record()
-torch.cuda.synchronize()
-ms = start.elapsed_time(end) / iters</code></pre>
-<p>还应对比有效带宽，而不只是毫秒：每个元素读取 <code>x/y</code> 并写出 <code>out</code>，FP32 理论数据量约为 <code>12 * n</code> 字节。该估算忽略缓存和其他开销，但能帮助识别数量级错误。</p>
-<h2 id="section-6">本机环境边界</h2>
-<p>MyStudy 当前 PyTorch CUDA runtime 能运行 GPU 张量和 FlashInfer，但自定义 CUDA 扩展还依赖本机 CUDA Toolkit、编译器与 PyTorch ABI 匹配。缺少 <code>nvcc</code> 时可以学习源码、接口和模拟验证，不能把它描述为本机 kernel 实测。</p>
-<h2 id="section-7">参考资料</h2>
-<ul><li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/">CUDA C++ Programming Guide</a></li><li><a href="https://pytorch.org/tutorials/advanced/cpp_extension.html">PyTorch C++/CUDA Extensions</a></li></ul>
-<p>资料核验日期：2026-08-03。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3-kernel">最小 kernel</a><a class="toc-level-2" href="#section-4-shape">正确性不是只测一个 shape</a><a class="toc-level-2" href="#section-5">性能验证</a><a class="toc-level-2" href="#section-6">本机环境边界</a><a class="toc-level-2" href="#section-7">参考资料</a></div></aside></div>
+<pre><code class="language-python">SIZES = [0, 1, 31, 32, 33, 255, 256, 257, 4096, 1_000_003]
+for n in SIZES:
+    x = torch.randn(n, device=&quot;cuda&quot;, dtype=torch.float32)
+    y = torch.randn_like(x)
+    torch.testing.assert_close(ext.add(x, y), x + y,
+                               rtol=1e-5, atol=1e-6)</code></pre>
+<p><code>31/32/33</code> 检查 warp 边界，<code>255/256/257</code> 检查 block 边界，质数规模检查尾部。还要验证 CPU tensor、dtype/shape 不一致和非连续输入会按契约报错。错误路径也是接口质量的一部分。</p>
+<h2 id="section-7-6">6. 性能：先保证计时可信</h2>
+<p>GPU launch 是异步的，直接用 Python 时钟通常只测到提交时间。正确做法是预热并使用同一 stream 上的 CUDA Event：</p>
+<pre><code class="language-python">def bench(fn, warmup=50, iters=200):
+    for _ in range(warmup):
+        fn()
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record()
+    for _ in range(iters):
+        fn()
+    end.record()
+    end.synchronize()
+    return start.elapsed_time(end) / iters</code></pre>
+<p>每组数据至少报告 GPU、PyTorch/CUDA 版本、dtype、元素数、warmup/iters 和 baseline。FP32 的有效带宽口径为：</p>
+<pre><code class="language-python">effective_gbps = (12 * n) / (latency_ms * 1e-3) / 1e9</code></pre>
+<table><tr><th>规模</th><th>常见主导因素</th><th>应如何解读</th></tr><tr><td>很小</td><td>Python、dispatcher、kernel launch</td><td>自定义实现更慢很正常</td></tr><tr><td>中等</td><td>launch 与内存吞吐共同影响</td><td>扫描 shape，观察拐点</td></tr><tr><td>很大</td><td>显存带宽</td><td>比较有效带宽，不只看 FLOPS</td></tr></table>
+<h2 id="section-8-7-nsight">7. Nsight 应该回答什么</h2>
+<p>CUDA Event 证明“慢”之后，再用 Nsight Systems 看时间线、用 Nsight Compute 分析单个 kernel：</p>
+<pre><code class="language-bash">nsys profile -t cuda,nvtx,osrt -o reports/vector_add python bench_vector_add.py
+ncu --set full -o reports/vector_add_kernel python bench_vector_add.py</code></pre>
+<p>对向量加法应检查 kernel 是否被大量细碎 launch 淹没、load/store 是否连续、有效带宽是否随规模上升、是否出现意外同步，以及 occupancy 是否被异常的 block 配置限制。如果小输入耗时几乎不随 <code>n</code> 变化，通常是 launch overhead；大输入带宽仍很低，才继续检查访存和对齐。</p>
+<h2 id="section-9-8-baseline">8. baseline 到优化版：每一步都保留</h2>
+<table><tr><th>版本</th><th>核心特性</th><th>学习目标</th><th>可能收益</th></tr><tr><td>B0</td><td><code>torch.add</code></td><td>建立框架基线</td><td>真实参照</td></tr><tr><td>V1</td><td>标量 grid-stride</td><td>跑通索引、扩展与 stream</td><td>建立闭环</td></tr><tr><td>V2</td><td><code>float4</code> + 尾部处理</td><td>学习对齐与宽访存</td><td>取决于 shape/对齐</td></tr><tr><td>V3</td><td>与后续逐元素操作融合</td><td>减少中间张量和 launch</td><td>通常更有工程价值</td></tr></table>
+<p>V2 不保证击败高度优化的 <code>torch.add</code>。单次加法的优化空间有限，真正有价值的方向往往是 V3，例如融合 <code>bias + residual + activation</code>，减少全局内存往返。一次“没有更快”的实验仍然成功，只要测量可信，而且数据证明瓶颈确实是 launch 或带宽。</p>
+<h2 id="section-10-9">9. 常见失败与诊断</h2>
+<table><tr><th>现象</th><th>首要怀疑</th><th>验证与修复</th></tr><tr><td>非整除 shape 出错</td><td>尾部越界或漏算</td><td>测 <code>255/257</code>，保留 <code>i &lt; n</code></td></tr><tr><td>多 GPU 设备错误</td><td>缺少 device guard</td><td>在非默认 GPU 测试，使用 <code>CUDAGuard</code></td></tr><tr><td>自定义 stream 偶发错误</td><td>硬编码默认 stream</td><td>加 stream 测试，取得当前 stream</td></tr><tr><td>数值正确但明显更慢</td><td>launch/包装开销</td><td>扫描 <code>n</code>，考虑批处理或融合</td></tr><tr><td>首次运行特别慢</td><td>JIT 与上下文初始化</td><td>分离冷启动，稳态前 warmup</td></tr><tr><td>profiler 出现同步</td><td>包装层显式同步</td><td>移除算子内部全局同步</td></tr></table>
+<h2 id="section-11-10">10. 当前课程环境与证据边界</h2>
+<p>MyStudy 的 WSL 算子环境已经具备 CUDA Toolkit 与 PyTorch CUDA 运行能力：</p>
+<pre><code class="language-text">GPU: NVIDIA RTX A1000 6GB Laptop GPU
+PyTorch: 2.11.0+cu130
+CUDA runtime / NVCC: 13.0
+Triton: 3.6.0</code></pre>
+<p>所以“缺少 <code>nvcc</code>，只能模拟”已经不是当前阻塞。课程仓库也为 RMSNorm、Softmax、GEMM 和 FlashAttention 保留了 baseline、优化版本、正确性对拍、benchmark 与 Nsight 入口。本文没有虚构一组本次未重新执行的向量加法延迟；应使用上述 harness 在目标 GPU 上生成可追溯结果。</p>
+<p>一个可交付实验至少留下：环境与编译命令、B0/V1/V2/V3 源码、正确性原始输出、各 shape 延迟与有效带宽、profiler 报告，以及失败样例和适用边界。</p>
+<h2 id="section-12-11">11. 学完后的验收标准</h2>
+<ul><li>能解释 Grid、Block、Warp、Thread 与元素索引的关系；</li><li>能写出支持任意 <code>n</code> 的 grid-stride loop；</li><li>能正确处理 device、dtype、layout 和 stream；</li><li>能设计边界 shape 与错误路径测试；</li><li>能用 CUDA Event 构建可信 benchmark；</li><li>能判断向量加法为何受带宽限制；</li><li>能用 Nsight 区分 launch、访存和同步问题；</li><li>能保留 baseline 与优化阶梯，并接受“该优化不适合此场景”的结论。</li></ul>
+<p>完成这套闭环后，再进入 reduction、GEMM、online softmax 与 FlashAttention，复杂度会上升，但工程方法不变。</p>
+<h2 id="section-13">参考资料</h2>
+<ul><li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/">CUDA C++ Programming Guide</a></li><li><a href="https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/">CUDA Best Practices Guide</a></li><li><a href="https://pytorch.org/tutorials/advanced/cpp_custom_ops.html">PyTorch Custom C++ and CUDA Operators</a></li><li><a href="https://docs.nvidia.com/nsight-systems/UserGuide/">Nsight Systems User Guide</a></li><li><a href="https://docs.nvidia.com/nsight-compute/">Nsight Compute Documentation</a></li></ul>
+<p>资料核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1-kernel-20">先说结论：kernel 能输出，只完成了 20%</a><a class="toc-level-2" href="#section-2-1-kernel">1. 先写契约，再写 kernel</a><a class="toc-level-2" href="#section-3-2-grid-stride-loop">2. 从线程层级理解 gridstride loop</a><a class="toc-level-2" href="#section-4-3">3. 合并访存决定带宽利用率</a><a class="toc-level-2" href="#section-5-4-pytorch">4. PyTorch 包装层不是胶水代码</a><a class="toc-level-2" href="#section-6-5-allclose">5. 正确性：不只跑一次 allclose</a><a class="toc-level-2" href="#section-7-6">6. 性能：先保证计时可信</a><a class="toc-level-2" href="#section-8-7-nsight">7. Nsight 应该回答什么</a><a class="toc-level-2" href="#section-9-8-baseline">8. baseline 到优化版：每一步都保留</a><a class="toc-level-2" href="#section-10-9">9. 常见失败与诊断</a><a class="toc-level-2" href="#section-11-10">10. 当前课程环境与证据边界</a><a class="toc-level-2" href="#section-12-11">11. 学完后的验收标准</a><a class="toc-level-2" href="#section-13">参考资料</a></div></aside></div>
   <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
-  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/operator-lab" target="_blank" rel="noopener">查看本文源码</a></div></section>
   <nav class="blog-pager" aria-label="文章导航"><a href="cuda-gemm-optimization-ladder.html"><span>上一篇</span><strong>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈</strong></a><a href="flashattention-online-softmax.html"><span>下一篇</span><strong>FlashAttention 为什么不是“更快的 Softmax”</strong></a></nav>
 </article></main>
   <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>

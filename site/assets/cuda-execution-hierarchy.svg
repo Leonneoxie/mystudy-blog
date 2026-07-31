@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="740" viewBox="0 0 1260 740">
+
+<defs>
+  <style>
+    .title{font:700 28px Arial, "Microsoft YaHei", sans-serif; fill:#172033}
+    .sub{font:600 16px Arial, "Microsoft YaHei", sans-serif; fill:#34415c}
+    .txt{font:14px Arial, "Microsoft YaHei", sans-serif; fill:#243047}
+    .small{font:12px Arial, "Microsoft YaHei", sans-serif; fill:#4b5875}
+    .box{rx:8; ry:8; fill:#ffffff; stroke:#9fb2d6; stroke-width:1.4}
+    .box2{rx:8; ry:8; fill:#f7fbff; stroke:#9bd1c6; stroke-width:1.4}
+    .warn{rx:8; ry:8; fill:#fff8ed; stroke:#f0b66d; stroke-width:1.4}
+    .line{stroke:#6b7a99; stroke-width:2; fill:none; marker-end:url(#arrow)}
+  </style>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7a99"/>
+  </marker>
+</defs>
+
+<rect width="1260" height="740" fill="#f7f9fc"/>
+<text class="title" x="48" y="58">CUDA 执行层级</text>
+<text class="txt" x="48" y="88">CUDA 用 grid/block/thread 组织并行，性能关键在 occupancy、内存访问和同步。</text>
+<rect class="box" x="70" y="150" width="210" height="140"/>
+<text class="sub" x="96" y="188">Host</text>
+<text class="txt" x="96" y="226">CPU 发起</text>
+<text class="txt" x="96" y="252">分配/拷贝</text>
+<text class="txt" x="96" y="278">launch kernel</text>
+<rect class="box2" x="320" y="150" width="210" height="140"/>
+<text class="sub" x="346" y="188">Grid</text>
+<text class="txt" x="346" y="226">多个 blocks</text>
+<text class="txt" x="346" y="252">独立调度</text>
+<text class="txt" x="346" y="278">覆盖张量空间</text>
+<path class="line" d="M280 220 H320"/>
+<rect class="box2" x="570" y="150" width="210" height="140"/>
+<text class="sub" x="596" y="188">Block</text>
+<text class="txt" x="596" y="226">threads 协作</text>
+<text class="txt" x="596" y="252">shared memory</text>
+<text class="txt" x="596" y="278">__syncthreads</text>
+<path class="line" d="M530 220 H570"/>
+<rect class="warn" x="820" y="150" width="210" height="140"/>
+<text class="sub" x="846" y="188">Warp</text>
+<text class="txt" x="846" y="226">32 threads</text>
+<text class="txt" x="846" y="252">SIMT</text>
+<text class="txt" x="846" y="278">分支发散</text>
+<path class="line" d="M780 220 H820"/>
+<rect class="warn" x="1070" y="150" width="210" height="140"/>
+<text class="sub" x="1096" y="188">Thread</text>
+<text class="txt" x="1096" y="226">寄存器</text>
+<text class="txt" x="1096" y="252">局部索引</text>
+<text class="txt" x="1096" y="278">读写元素</text>
+<path class="line" d="M1030 220 H1070"/>
+<rect class="box" x="150" y="430" width="960" height="126"/>
+<text class="sub" x="184" y="468">学习判断</text>
+<text class="txt" x="184" y="506">CUDA kernel 的第一步不是写代码，而是把 tensor 的元素映射到线程和内存访问。</text>
+</svg>
