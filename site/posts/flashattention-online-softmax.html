@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。">
+  <title>FlashAttention 为什么不是“更快的 Softmax” - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/flashattention-online-softmax.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="FlashAttention 为什么不是“更快的 Softmax”">
+  <meta property="og:description" content="从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/flashattention-online-softmax.html">
+  <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="FlashAttention 为什么不是“更快的 Softmax”">
+  <meta name="twitter:description" content="从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。">
+  <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="FlashAttention">
+  <meta property="article:tag" content="Online Softmax">
+  <meta property="article:tag" content="CUDA">
+  <meta property="article:tag" content="IO Awareness">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "FlashAttention 为什么不是“更快的 Softmax”", "description": "从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/flashattention-online-softmax.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["FlashAttention", "Online Softmax", "CUDA", "IO Awareness"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>FlashAttention 为什么不是“更快的 Softmax”</h1><p class="blog-summary">从 IO 复杂度、online softmax 递推和分块累积三个层面，解释 FlashAttention 如何在不物化完整注意力矩阵的前提下保持数学等价。</p><div class="blog-byline"><time>2026-07-31</time><span>约 4 分钟</span><span>进阶</span></div><div class="blog-tags"><span>FlashAttention</span><span>Online Softmax</span><span>CUDA</span><span>IO Awareness</span></div></header>
+  <section class="article-visual" aria-label="文章技术图解">
+  <div class="article-visual-head"><div><span>FLASH ATTENTION</span><h2>分块计算如何保持精确 softmax</h2></div><strong>TECH MAP</strong></div>
+  <div class="tech-flow"><div class="tech-node"><span>01</span><strong>QKᵀ Tile</strong></div><div class="tech-node"><span>02</span><strong>Online Max</strong></div><div class="tech-node"><span>03</span><strong>Online Sum</strong></div><div class="tech-node"><span>04</span><strong>PV Accumulate</strong></div></div>
+  <ul class="visual-takeaways"><li>不物化完整注意力矩阵</li><li>递推缩放保持数值等价</li><li>性能收益来自 IO 复杂度</li></ul>
+</section>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">先给结论</h2>
+<p>FlashAttention 的核心不是重新发明 softmax，而是改变注意力计算的<strong>数据移动方式</strong>：把 $QK^T$、softmax 和 $PV$ 融合在同一分块流水中，让中间注意力矩阵尽量停留在片上存储，而不是往返显存。</p>
+<p>它必须同时满足两件事：</p>
+<ol><li>分块后的输出与标准 attention 数学等价；</li><li>HBM 读写量显著降低，节省的 IO 足以覆盖额外递推计算。</li></ol>
+<p>只实现一个 online softmax 函数，并不能自动得到 FlashAttention。</p>
+<h2 id="section-2-attention">标准 Attention 的问题发生在哪里</h2>
+<p>标准形式为：</p>
+<p>$$ S = QK^T / \sqrt{d}, \qquad P = \operatorname{softmax}(S), \qquad O = PV $$</p>
+<p>当序列长度为 $N$ 时，$S$ 和 $P$ 都是 $N \times N$。朴素实现通常经历：</p>
+<pre><code class="language-text">Q, K 读取
+  → 写出完整 S
+  → 读取 S 做 softmax
+  → 写出完整 P
+  → 读取 P、V 做矩阵乘</code></pre>
+<p>计算量依旧是 $O(N^2d)$，但显存流量和 $N^2$ 中间张量会快速成为瓶颈。GPU 的算力增长通常快于显存带宽增长，因此“少搬数据”可能比“少做几次标量运算”更重要。</p>
+<h2 id="section-3-online-softmax">Online Softmax 如何支持分块</h2>
+<p>对一行 logits $x$，稳定 softmax 使用：</p>
+<p>$$ m = \max_i x_i,\qquad \ell = \sum_i e^{x_i-m},\qquad y_i = e^{x_i-m}/\ell $$</p>
+<p>如果 logits 分成旧块和新块，可以递推维护行最大值与归一化和：</p>
+<p>$$ m_{\text{new}} = \max(m_{\text{old}}, m_{\text{block}}) $$</p>
+<p>$$ \ell_{\text{new}} = e^{m_{\text{old}}-m_{\text{new}}}\ell_{\text{old}}</p>
+<ul><li>e^{m_{\text{block}}-m_{\text{new}}}\ell_{\text{block}}</li></ul>
+<p>$$</p>
+<p>旧输出累积量也必须乘以 $e^{m_{\text{old}}-m_{\text{new}}}$ 重新缩放。这个步骤经常被初学实现漏掉：最大值变化后，旧块与新块必须重新落到同一指数基准。</p>
+<h2 id="section-4">分块前向的状态机</h2>
+<p>对一个 Q tile，遍历所有 K/V tile：</p>
+<pre><code class="language-python">m_i = -inf
+l_i = 0
+acc = 0
+
+for k_tile, v_tile in kv_tiles:
+    scores = q_tile @ k_tile.T * scale
+    block_max = scores.max(dim=-1)
+    new_max = maximum(m_i, block_max)
+
+    old_factor = exp(m_i - new_max)
+    probs = exp(scores - new_max[:, None])
+
+    acc = acc * old_factor[:, None] + probs @ v_tile
+    l_i = l_i * old_factor + probs.sum(dim=-1)
+    m_i = new_max
+
+output = acc / l_i[:, None]</code></pre>
+<p>这段伪代码最重要的不是语法，而是三个跨 tile 状态：</p>
+<ul><li><code>m_i</code>：当前已经见过的最大值；</li><li><code>l_i</code>：相对于 <code>m_i</code> 的指数和；</li><li><code>acc</code>：同一缩放基准下的输出累积。</li></ul>
+<h2 id="section-5-mask">因果 Mask 应该放在哪里</h2>
+<p>因果 mask 必须在 block max 和指数计算之前生效：</p>
+<pre><code class="language-text">未来位置 score = -∞
+      ↓
+参与 block max
+      ↓
+参与 exp 与归一化</code></pre>
+<p>边界 tile 通常只有一部分位置有效。若先计算 softmax 再把未来位置清零，归一化分母已经错误。</p>
+<p>工程实现中还要区分：</p>
+<ul><li>完全位于对角线左下方的 tile：无需逐元素 mask；</li><li>与对角线相交的 tile：需要细粒度 causal mask；</li><li>完全位于未来区域的 tile：可以直接跳过。</li></ul>
+<h2 id="section-6-tile">为什么 tile 越大不一定越快</h2>
+<p>tile 选择同时影响：</p>
+<table><tr><th>因素</th><th>tile 增大后的变化</th></tr><tr><td>数据复用</td><td>通常改善</td></tr><tr><td>shared memory</td><td>占用增加</td></tr><tr><td>register pressure</td><td>增加，可能 spill</td></tr><tr><td>occupancy</td><td>可能下降</td></tr><tr><td>边界浪费</td><td>短序列时更明显</td></tr><tr><td>Tensor Core 利用率</td><td>满足形状约束时改善</td></tr></table>
+<p>因此 tile 大小不能只按矩阵维度猜测。需要结合 shared-memory 预算、寄存器数、warp 数和目标 GPU 做 profile。</p>
+<h2 id="section-7">正确性验收不能只看一个输出</h2>
+<p>建议至少保留四级测试：</p>
+<ol><li>小 shape 与 PyTorch SDPA 对拍；</li><li>causal/non-causal、奇数长度和非整 tile 边界；</li><li>FP32 累积 oracle 与 FP16/BF16 容差；</li><li>长序列压力测试，确认没有 NaN、溢出或 mask 泄漏。</li></ol>
+<p>误差报告至少包含：</p>
+<pre><code class="language-text">max_abs_error
+mean_abs_error
+relative_l2_error
+NaN / Inf count</code></pre>
+<h2 id="section-8">性能验收应该回答什么</h2>
+<p>不能只报告“比 Python 快”。至少需要比较：</p>
+<ul><li>PyTorch SDPA；</li><li>本地 naive/fused baseline；</li><li>优化版本；</li><li>不同 batch、head、sequence length、head dimension；</li><li>warmup 后的 P50/P95 latency；</li><li>峰值显存；</li><li>profiler 中的 HBM 流量、occupancy 和 kernel 时间。</li></ul>
+<p>如果只在一个小 shape 上快，或者时间主要花在 launch overhead，它还不能证明算法级收益。</p>
+<h2 id="section-9">从课程实现中应该学到什么</h2>
+<p>一个好的 FlashAttention Lab 应保留演进版本：</p>
+<pre><code class="language-text">F0：PyTorch oracle
+F1：naive attention
+F2：online softmax correctness
+F3：tiled fused forward
+F4：causal 与边界优化
+F5：profile 驱动的 tile/warp 调优</code></pre>
+<p>最终版本不是唯一学习资产。每一级新增了什么、修复了什么瓶颈、牺牲了什么资源，才是算子优化教程真正应该留下的内容。</p>
+<h2 id="section-10">参考资料</h2>
+<ul><li><a href="https://arxiv.org/abs/2205.14135">FlashAttention 论文</a></li><li><a href="https://arxiv.org/abs/2307.08691">FlashAttention-2 论文</a></li><li><a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html">PyTorch scaled dot product attention</a></li></ul>
+<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">先给结论</a><a class="toc-level-2" href="#section-2-attention">标准 Attention 的问题发生在哪里</a><a class="toc-level-2" href="#section-3-online-softmax">Online Softmax 如何支持分块</a><a class="toc-level-2" href="#section-4">分块前向的状态机</a><a class="toc-level-2" href="#section-5-mask">因果 Mask 应该放在哪里</a><a class="toc-level-2" href="#section-6-tile">为什么 tile 越大不一定越快</a><a class="toc-level-2" href="#section-7">正确性验收不能只看一个输出</a><a class="toc-level-2" href="#section-8">性能验收应该回答什么</a><a class="toc-level-2" href="#section-9">从课程实现中应该学到什么</a><a class="toc-level-2" href="#section-10">参考资料</a></div></aside></div>
+  <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/operator-lab" target="_blank" rel="noopener">查看本文源码</a></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="first-custom-cuda-operator.html"><span>上一篇</span><strong>第一个自定义 CUDA 算子应该验证什么</strong></a><a href="inference-framework-comparison.html"><span>下一篇</span><strong>vLLM、SGLang 与 vLLM-Omni 应该如何比较</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>
+</body>
+</html>

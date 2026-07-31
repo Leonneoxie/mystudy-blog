@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。">
+  <title>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈 - MyStudy 技术博客</title>
+  <link rel="canonical" href="https://leonneoxie.github.io/mystudy-blog/posts/cuda-gemm-optimization-ladder.html">
+  <link rel="alternate" type="application/rss+xml" title="MyStudy 技术博客 RSS" href="../rss.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MyStudy 技术博客">
+  <meta property="og:title" content="CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈">
+  <meta property="og:description" content="用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。">
+  <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/cuda-gemm-optimization-ladder.html">
+  <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈">
+  <meta name="twitter:description" content="用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。">
+  <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="article:published_time" content="2026-07-31">
+  <meta property="article:modified_time" content="2026-07-31">
+  <meta property="article:tag" content="CUDA">
+  <meta property="article:tag" content="GEMM">
+  <meta property="article:tag" content="Tensor Core">
+  <meta property="article:tag" content="Profiling">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈", "description": "用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/cuda-gemm-optimization-ladder.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["CUDA", "GEMM", "Tensor Core", "Profiling"]}</script>
+  <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
+  <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body class="blog-body">
+  <header class="blog-topbar">
+    <a class="blog-brand" href="../index.html"><span class="brand-mark">MS</span><span><strong>MyStudy Blog</strong><small>原理 · 源码 · 实验 · 复盘</small></span></a>
+    <nav aria-label="博客导航">
+      <a href="../index.html">文章</a>
+      <a href="../archive.html">归档</a>
+      <a href="../categories.html">分类</a>
+      <a href="../tags.html">标签</a>
+      <a href="../series.html">系列</a>
+      <a href="../search.html">搜索</a>
+
+    </nav>
+  </header>
+  <main class="blog-main">
+<article class="blog-article">
+  <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">CUDA 与算子</p><h1>CUDA GEMM 优化阶梯：每一步究竟解决什么瓶颈</h1><p class="blog-summary">用 baseline、shared-memory tiling、register tiling、向量化和 Tensor Core 五级实现，建立可解释、可复现的 GEMM 性能优化方法。</p><div class="blog-byline"><time>2026-07-31</time><span>约 4 分钟</span><span>进阶</span></div><div class="blog-tags"><span>CUDA</span><span>GEMM</span><span>Tensor Core</span><span>Profiling</span></div></header>
+  <section class="article-visual" aria-label="文章技术图解">
+  <div class="article-visual-head"><div><span>GEMM OPTIMIZATION</span><h2>从正确 kernel 到接近硬件上限</h2></div><strong>TECH MAP</strong></div>
+  <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Naive</strong></div><div class="tech-node"><span>02</span><strong>Shared Tile</strong></div><div class="tech-node"><span>03</span><strong>Register Tile</strong></div><div class="tech-node"><span>04</span><strong>Tensor Core</strong></div></div>
+  <ul class="visual-takeaways"><li>每级只引入一个变量</li><li>Roofline 判断主瓶颈</li><li>profile 证据决定下一步</li></ul>
+</section>
+  <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1-gemm">为什么 GEMM 适合学习优化</h2>
+<p>GEMM 公式很简单：</p>
+<p>$$ C_{M\times N}=A_{M\times K}B_{K\times N} $$</p>
+<p>但它同时暴露了 GPU 优化的核心矛盾：全局内存带宽、数据复用、线程映射、寄存器压力、occupancy、指令吞吐和硬件矩阵单元。几乎所有深度学习算子优化都能在 GEMM 中找到对应概念。</p>
+<p>真正有效的学习方式不是直接阅读最终 Tensor Core kernel，而是保留一条可测量的演进阶梯。</p>
+<h2 id="section-2-g0">G0：先建立可信基线</h2>
+<p>基线包含两个对象：</p>
+<ul><li>正确性 oracle：<code>torch.matmul</code> 或 cuBLAS；</li><li>最小 CUDA kernel：每个线程计算一个 $C_{ij}$。</li></ul>
+<pre><code class="language-cuda">float acc = 0.0f;
+for (int k = 0; k &lt; K; ++k) {
+    acc += A[row * K + k] * B[k * N + col];
+}
+C[row * N + col] = acc;</code></pre>
+<p>这个版本通常很慢，因为同一行 A 和同一列 B 被不同线程反复从全局内存读取。但它必须保留，因为后续每一级都需要回答“相对哪个 baseline 提升”。</p>
+<p>基线报告应固定：</p>
+<pre><code class="language-text">shape / dtype / layout
+warmup / repeat
+latency P50 / P95
+TFLOPS
+max error
+GPU / CUDA / compiler</code></pre>
+<h2 id="section-3-g1-shared-memory-tiling">G1：Shared Memory Tiling</h2>
+<p>将 A、B 切成 tile，由一个 thread block 协同加载：</p>
+<pre><code class="language-text">Global A tile ─┐
+               ├→ Shared Memory → 多次复用 → C tile
+Global B tile ─┘</code></pre>
+<p>若 tile 边长为 $T$，理想情况下一个 tile 的数据会被约 $T$ 个线程复用，从而降低全局内存读取。</p>
+<p>关键正确性点：</p>
+<ol><li>每轮加载后 <code>__syncthreads()</code>；</li><li>使用完成后再次同步，才能覆盖 shared memory；</li><li>M/N/K 非 tile 整数倍时做边界保护；</li><li>越界填零不能污染有效累积。</li></ol>
+<h2 id="section-4-g2-register-tiling">G2：Register Tiling</h2>
+<p>一个线程只计算一个输出，通常无法充分复用寄存器中的 A/B 值。Register tiling 让一个线程计算一个小输出块：</p>
+<pre><code class="language-text">thread
+├── C00 C01 C02 C03
+├── C10 C11 C12 C13
+└── register accumulators</code></pre>
+<p>同一个 A fragment 可以更新多个 N 方向输出，同一个 B fragment 可以更新多个 M 方向输出。</p>
+<p>代价是寄存器数量快速上升。超过阈值后会发生：</p>
+<ul><li>occupancy 下降；</li><li>local-memory spill；</li><li>更多依赖链；</li><li>编译器调度压力。</li></ul>
+<p>所以 register tile 不是越大越好。</p>
+<h2 id="section-5-g3">G3：合并访存和向量化</h2>
+<p>Shared tiling 解决“重复读取”，但不自动保证“读取方式高效”。还需要检查：</p>
+<ul><li>warp 内线程地址是否连续；</li><li>是否满足 16-byte 对齐；</li><li>能否使用 <code>float4</code>、<code>half2</code> 等向量访问；</li><li>B 的布局是否导致跨步读取；</li><li>shared-memory bank conflict 是否出现。</li></ul>
+<p>向量化前必须证明：</p>
+<pre><code class="language-text">指针对齐
+维度满足向量宽度
+边界路径安全</code></pre>
+<p>否则性能优化会变成未定义行为。</p>
+<h2 id="section-6-g4">G4：双缓冲与异步拷贝</h2>
+<p>单缓冲流水是：</p>
+<pre><code class="language-text">load tile → wait → compute tile → load next tile</code></pre>
+<p>双缓冲希望形成：</p>
+<pre><code class="language-text">compute tile n
+     ∥
+load tile n+1</code></pre>
+<p>Ampere 及之后架构可以利用异步 global-to-shared copy，但只有计算量足够、同步和 buffer 切换正确时才有收益。小矩阵可能被额外控制开销抵消。</p>
+<h2 id="section-7-g5-tensor-core">G5：Tensor Core</h2>
+<p>Tensor Core 不是把标量乘加换个函数名。需要同时满足：</p>
+<ul><li>支持的 dtype；</li><li>MMA fragment 形状；</li><li>layout 与对齐；</li><li>累积精度；</li><li>warp 级线程协作；</li><li>K 维 padding；</li><li>epilogue 的输出转换。</li></ul>
+<p>性能比较必须包含 cuBLAS。自定义 kernel 超过 naive 很容易，接近成熟库才说明实现真正利用了硬件。</p>
+<h2 id="section-8-roofline">用 Roofline 决定下一步</h2>
+<p>算术强度：</p>
+<p>$$ I = \frac{\text{FLOPs}}{\text{Bytes transferred}} $$</p>
+<p>Roofline 给出近似上限：</p>
+<p>$$ P \le \min(P_{\text{peak}}, I \cdot BW_{\text{peak}}) $$</p>
+<p>如果 kernel 处于带宽区，应优先减少访存、改善合并访问和复用；如果已经进入计算区，再关注指令吞吐、Tensor Core 和流水并行。</p>
+<p>这比“看到 shared memory 就加 shared memory”更可靠。</p>
+<h2 id="section-9-profile">Profile 应该看哪些指标</h2>
+<table><tr><th>现象</th><th>可能原因</th><th>下一步</th></tr><tr><td>DRAM throughput 高、SM 低</td><td>带宽受限</td><td>增加复用、减少中间写回</td></tr><tr><td>occupancy 低、寄存器高</td><td>register tile 过大</td><td>缩小线程输出块</td></tr><tr><td>shared replay 高</td><td>bank conflict</td><td>调整布局或 padding</td></tr><tr><td>eligible warps 少</td><td>同步/依赖链</td><td>检查流水和指令级并行</td></tr><tr><td>Tensor Core 利用率低</td><td>fragment/layout 不匹配</td><td>检查 MMA 映射</td></tr></table>
+<p>不要只截一张 timeline。每个版本应保存关键 metric 与解释。</p>
+<h2 id="section-10">推荐的教程产物</h2>
+<pre><code class="language-text">gemm_g0_naive.cu
+gemm_g1_shared.cu
+gemm_g2_register.cu
+gemm_g3_vectorized.cu
+gemm_g4_pipeline.cu
+gemm_g5_tensorcore.cu
+benchmark.json
+profile-notes.md</code></pre>
+<p>每个版本都应该能独立编译、对拍和 benchmark。最终优化版本很重要，但版本之间的因果关系更重要。</p>
+<h2 id="section-11">参考资料</h2>
+<ul><li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/">CUDA C++ Programming Guide</a></li><li><a href="https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/">CUDA C++ Best Practices Guide</a></li><li><a href="https://docs.nvidia.com/nsight-compute/">Nsight Compute Documentation</a></li></ul>
+<p>核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1-gemm">为什么 GEMM 适合学习优化</a><a class="toc-level-2" href="#section-2-g0">G0：先建立可信基线</a><a class="toc-level-2" href="#section-3-g1-shared-memory-tiling">G1：Shared Memory Tiling</a><a class="toc-level-2" href="#section-4-g2-register-tiling">G2：Register Tiling</a><a class="toc-level-2" href="#section-5-g3">G3：合并访存和向量化</a><a class="toc-level-2" href="#section-6-g4">G4：双缓冲与异步拷贝</a><a class="toc-level-2" href="#section-7-g5-tensor-core">G5：Tensor Core</a><a class="toc-level-2" href="#section-8-roofline">用 Roofline 决定下一步</a><a class="toc-level-2" href="#section-9-profile">Profile 应该看哪些指标</a><a class="toc-level-2" href="#section-10">推荐的教程产物</a><a class="toc-level-2" href="#section-11">参考资料</a></div></aside></div>
+  <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
+  <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"><a class="button" href="https://github.com/Leonneoxie/MyStudy" target="_blank" rel="noopener">GitHub 项目</a><a class="button" href="https://github.com/Leonneoxie/MyStudy/tree/main/operator-lab" target="_blank" rel="noopener">查看本文源码</a></div></section>
+  <nav class="blog-pager" aria-label="文章导航"><a href="prefill-decode-scheduling.html"><span>上一篇</span><strong>Prefill 与 Decode 为什么会争抢同一块 GPU</strong></a><a href="first-custom-cuda-operator.html"><span>下一篇</span><strong>第一个自定义 CUDA 算子应该验证什么</strong></a></nav>
+</article></main>
+  <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>
+</body>
+</html>

@@ -12,16 +12,19 @@
   <meta property="og:title" content="Prefix Cache 与 RadixAttention：复用前缀不只是做哈希">
   <meta property="og:description" content="比较块哈希缓存和 radix tree 前缀缓存，说明命中、引用、驱逐和 cache-aware scheduling 的系统联系。">
   <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/prefix-cache-radix-attention.html">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Prefix Cache 与 RadixAttention：复用前缀不只是做哈希">
   <meta name="twitter:description" content="比较块哈希缓存和 radix tree 前缀缓存，说明命中、引用、驱逐和 cache-aware scheduling 的系统联系。">
+  <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
   <meta property="article:published_time" content="2026-07-31">
   <meta property="article:modified_time" content="2026-07-31">
   <meta property="article:tag" content="Prefix Cache">
   <meta property="article:tag" content="RadixAttention">
   <meta property="article:tag" content="SGLang">
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Prefix Cache 与 RadixAttention：复用前缀不只是做哈希", "description": "比较块哈希缓存和 radix tree 前缀缓存，说明命中、引用、驱逐和 cache-aware scheduling 的系统联系。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/prefix-cache-radix-attention.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["Prefix Cache", "RadixAttention", "SGLang"]}</script>
-  <link rel="stylesheet" href="../assets/styles.css?v=7bf1a9e4bf47">
+  <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
   <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
   <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
@@ -42,6 +45,11 @@
   <main class="blog-main">
 <article class="blog-article">
   <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</h1><p class="blog-summary">比较块哈希缓存和 radix tree 前缀缓存，说明命中、引用、驱逐和 cache-aware scheduling 的系统联系。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>进阶</span></div><div class="blog-tags"><span>Prefix Cache</span><span>RadixAttention</span><span>SGLang</span></div></header>
+  <section class="article-visual" aria-label="文章技术图解">
+  <div class="article-visual-head"><div><span>PREFIX REUSE</span><h2>把公共前缀变成可复用计算资产</h2></div><strong>TECH MAP</strong></div>
+  <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Token Prefix</strong></div><div class="tech-node"><span>02</span><strong>Radix Tree</strong></div><div class="tech-node"><span>03</span><strong>KV 引用</strong></div><div class="tech-node"><span>04</span><strong>命中/淘汰</strong></div></div>
+  <ul class="visual-takeaways"><li>键必须包含模型语义</li><li>引用计数保证生命周期</li><li>命中率不等于收益</li></ul>
+</section>
   <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">问题背景</h2>
 <p>系统提示词、长文档模板和多轮会话经常重复。若每个请求都重新 Prefill，相同前缀会重复消耗计算。前缀缓存保存已经计算的 KV，并在新请求到达时复用最长匹配部分。</p>
 <h2 id="section-2">一句话结论</h2>
@@ -67,9 +75,10 @@ Radix tree:
 <h2 id="section-8">参考资料</h2>
 <ul><li><a href="https://docs.sglang.ai/">SGLang 官方文档</a></li><li><a href="https://docs.vllm.ai/">vLLM Automatic Prefix Caching</a></li></ul>
 <p>资料核验日期：2026-07-31。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">问题背景</a><a class="toc-level-2" href="#section-2">一句话结论</a><a class="toc-level-2" href="#section-3">两种表示</a><a class="toc-level-2" href="#section-4">缓存键必须包含什么</a><a class="toc-level-2" href="#section-5">调度为何要感知缓存</a><a class="toc-level-2" href="#section-6">驱逐与引用</a><a class="toc-level-2" href="#section-7">验收清单</a><a class="toc-level-2" href="#section-8">参考资料</a></div></aside></div>
+  <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
-  <nav class="blog-pager" aria-label="文章导航"><a href="mini-infer-architecture.html"><span>上一篇</span><strong>mini-infer 为什么把推理引擎拆成四个边界</strong></a><a href="speculative-decoding-contract.html"><span>下一篇</span><strong>投机解码真正难在接受规则与状态回滚</strong></a></nav>
+  <nav class="blog-pager" aria-label="文章导航"><a href="mini-infer-architecture.html"><span>上一篇</span><strong>mini-infer 为什么把推理引擎拆成四个边界</strong></a><a href="qat-to-vllm-export-contract.html"><span>下一篇</span><strong>从 QAT 到 vLLM：量化模型真正可部署需要哪些契约</strong></a></nav>
 </article></main>
-  <footer class="blog-footer"><span>MyStudy 技术博客</span></footer>
+  <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>
 </body>
 </html>

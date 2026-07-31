@@ -7,10 +7,13 @@
   <url><loc>https://leonneoxie.github.io/mystudy-blog/series.html</loc></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/search.html</loc></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/speculative-decoding-contract.html</loc><lastmod>2026-07-31</lastmod></url>
+  <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/qat-to-vllm-export-contract.html</loc><lastmod>2026-07-31</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/prefix-cache-radix-attention.html</loc><lastmod>2026-07-31</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/mini-infer-architecture.html</loc><lastmod>2026-07-31</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/inference-framework-comparison.html</loc><lastmod>2026-07-31</lastmod></url>
+  <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/flashattention-online-softmax.html</loc><lastmod>2026-07-31</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/first-custom-cuda-operator.html</loc><lastmod>2026-07-31</lastmod></url>
+  <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/cuda-gemm-optimization-ladder.html</loc><lastmod>2026-07-31</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/prefill-decode-scheduling.html</loc><lastmod>2026-07-30</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/continuous-batching.html</loc><lastmod>2026-07-29</lastmod></url>
   <url><loc>https://leonneoxie.github.io/mystudy-blog/posts/paged-kv-cache.html</loc><lastmod>2026-07-28</lastmod></url>

@@ -12,16 +12,19 @@
   <meta property="og:title" content="投机解码真正难在接受规则与状态回滚">
   <meta property="og:description" content="从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。">
   <meta property="og:url" content="https://leonneoxie.github.io/mystudy-blog/posts/speculative-decoding-contract.html">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
+  <meta property="og:image:alt" content="MyStudy AI 系统、CUDA 与量化技术博客">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="投机解码真正难在接受规则与状态回滚">
   <meta name="twitter:description" content="从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。">
+  <meta name="twitter:image" content="https://leonneoxie.github.io/mystudy-blog/assets/mystudy-social-card.webp">
   <meta property="article:published_time" content="2026-07-31">
   <meta property="article:modified_time" content="2026-07-31">
   <meta property="article:tag" content="Speculative Decoding">
   <meta property="article:tag" content="Sampling">
   <meta property="article:tag" content="KV Rollback">
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "投机解码真正难在接受规则与状态回滚", "description": "从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。", "mainEntityOfPage": "https://leonneoxie.github.io/mystudy-blog/posts/speculative-decoding-contract.html", "datePublished": "2026-07-31", "dateModified": "2026-07-31", "author": {"@type": "Person", "name": "MyStudy"}, "keywords": ["Speculative Decoding", "Sampling", "KV Rollback"]}</script>
-  <link rel="stylesheet" href="../assets/styles.css?v=7bf1a9e4bf47">
+  <link rel="stylesheet" href="../assets/styles.css?v=03184ba3c96d">
   <script>(function(){try{var t=localStorage.getItem("als:theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
   <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']],displayMath:[['$$','$$'],['\[','\]']]},svg:{fontCache:'global'}};</script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
@@ -42,6 +45,11 @@
   <main class="blog-main">
 <article class="blog-article">
   <header class="blog-article-head"><a class="blog-back" href="../index.html">← 返回全部文章</a><p class="kicker">推理系统</p><h1>投机解码真正难在接受规则与状态回滚</h1><p class="blog-summary">从 draft、verify、accept 三步解释投机解码，并梳理 KV Cache、采样状态和停止条件的回滚契约。</p><div class="blog-byline"><time>2026-07-31</time><span>约 2 分钟</span><span>高级</span></div><div class="blog-tags"><span>Speculative Decoding</span><span>Sampling</span><span>KV Rollback</span></div></header>
+  <section class="article-visual" aria-label="文章技术图解">
+  <div class="article-visual-head"><div><span>SPECULATIVE DECODING</span><h2>Draft 提速，Target 保证分布正确</h2></div><strong>TECH MAP</strong></div>
+  <div class="tech-flow"><div class="tech-node"><span>01</span><strong>Draft 提议</strong></div><div class="tech-node"><span>02</span><strong>Target 验证</strong></div><div class="tech-node"><span>03</span><strong>接受/拒绝</strong></div><div class="tech-node"><span>04</span><strong>KV 回滚</strong></div></div>
+  <ul class="visual-takeaways"><li>正确性来自接受规则</li><li>回滚是系统级契约</li><li>收益取决于接受率</li></ul>
+</section>
   <div class="blog-reading-layout"><div class="blog-prose"><h2 id="section-1">一句话结论</h2>
 <p>投机解码通过便宜 proposer 一次提出多个 token，再由目标模型并行验证；是否加速取决于接受率和验证成本，而正确性取决于接受规则及所有请求状态能否一致回滚。</p>
 <h2 id="section-2">三步执行</h2>
@@ -62,9 +70,10 @@ accept: 接受前缀，遇到拒绝点改由目标分布采样</code></pre>
 <h2 id="section-7">参考资料</h2>
 <ul><li><a href="https://arxiv.org/abs/2211.17192">Fast Inference from Transformers via Speculative Decoding</a></li><li><a href="https://docs.vllm.ai/">vLLM Speculative Decoding</a></li></ul>
 <p>资料核验日期：2026-08-01。</p></div><aside class="page-toc" aria-label="本页导航"><strong>本页导航</strong><div><a class="toc-level-2" href="#section-1">一句话结论</a><a class="toc-level-2" href="#section-2">三步执行</a><a class="toc-level-2" href="#section-3-greedy">为什么不能只比较 greedy 输出</a><a class="toc-level-2" href="#section-4">回滚对象</a><a class="toc-level-2" href="#section-5">最小实验设计</a><a class="toc-level-2" href="#section-6">必须报告的指标</a><a class="toc-level-2" href="#section-7">参考资料</a></div></aside></div>
+  <section class="author-evidence"><div class="author-monogram">MS</div><div><span>ABOUT THIS PUBLICATION</span><h2>MyStudy 工程学习与实验记录</h2><p>文章来自课程实现、源码阅读与实机验证。能够复现的给出入口，受环境限制的明确标注，不用模拟结果替代真实性能证据。</p></div><a href="../series.html">浏览专题系列 →</a></section>
   <section class="blog-related"><h2>继续学习与复现</h2><div class="hero-actions"></div></section>
-  <nav class="blog-pager" aria-label="文章导航"><a href="prefix-cache-radix-attention.html"><span>上一篇</span><strong>Prefix Cache 与 RadixAttention：复用前缀不只是做哈希</strong></a><span></span></nav>
+  <nav class="blog-pager" aria-label="文章导航"><a href="qat-to-vllm-export-contract.html"><span>上一篇</span><strong>从 QAT 到 vLLM：量化模型真正可部署需要哪些契约</strong></a><span></span></nav>
 </article></main>
-  <footer class="blog-footer"><span>MyStudy 技术博客</span></footer>
+  <footer class="blog-footer"><div><strong>MyStudy 技术博客</strong><span>从原理、源码到实验与边界。</span></div><nav><a href="../rss.xml">RSS</a><a href="../series.html">专题系列</a></nav></footer>
 </body>
 </html>
